@@ -36,6 +36,8 @@ class Config:
     prompt_path: Path | None = None
     whisper_model: str = "small"
     whisper_device: str = "auto"  # "auto" | "cpu" | "cuda"
+    audio_language: str | None = None  # ISO code, e.g. "de"; forces whisper language
+    notes: str | None = None           # free-text forwarded to LLM capture metadata
     llm: LLMConfig = field(default_factory=LLMConfig)
 
 
@@ -84,6 +86,13 @@ def from_file(path: Path, base: Config | None = None) -> Config:
         cfg,
         whisper_model=whisper.get("model", cfg.whisper_model),
         whisper_device=whisper.get("device", cfg.whisper_device),
+    )
+
+    video = data.get("video", {}) or {}
+    cfg = replace(
+        cfg,
+        audio_language=video.get("audio_language", cfg.audio_language),
+        notes=video.get("notes", cfg.notes),
     )
 
     llm_data = data.get("llm", {}) or {}

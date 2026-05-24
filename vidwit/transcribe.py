@@ -17,11 +17,13 @@ class Word:
 class Transcript:
     words: tuple[Word, ...]
     language: str | None = None
+    language_probability: float | None = None
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "language": self.language,
+                "language_probability": self.language_probability,
                 "words": [asdict(w) for w in self.words],
             },
             ensure_ascii=False,
@@ -32,6 +34,7 @@ class Transcript:
         data = json.loads(payload)
         return cls(
             language=data.get("language"),
+            language_probability=data.get("language_probability"),
             words=tuple(Word(**w) for w in data.get("words", [])),
         )
 
@@ -50,8 +53,14 @@ def transcribe(
     model_name: str = "small",
     device: str = "auto",
     default_speaker: str | None = None,
+    language: str | None = None,
 ) -> Transcript:
-    """Word-level transcript via faster-whisper."""
+    """Word-level transcript via faster-whisper.
+
+    `language` is an optional ISO code (e.g. "de"). When None, whisper
+    auto-detects. Passing a hint forces decoding in that language —
+    useful when auto-detect picks the wrong one.
+    """
     from faster_whisper import WhisperModel
 
     if device == "auto":
@@ -59,7 +68,9 @@ def transcribe(
     compute_type = "float16" if device == "cuda" else "int8"
 
     model = WhisperModel(model_name, device=device, compute_type=compute_type)
-    segments, info = model.transcribe(str(audio_path), word_timestamps=True)
+    segments, info = model.transcribe(
+        str(audio_path), word_timestamps=True, language=language,
+    )
 
     words: list[Word] = []
     for seg in segments:
@@ -72,7 +83,11 @@ def transcribe(
                     speaker=default_speaker,
                 )
             )
-    return Transcript(words=tuple(words), language=info.language)
+    return Transcript(
+        words=tuple(words),
+        language=info.language,
+        language_probability=float(info.language_probability),
+    )
 
 
 def _cuda_ok() -> bool:

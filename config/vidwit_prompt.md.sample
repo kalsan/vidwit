@@ -34,7 +34,9 @@ Cover, in this order, only as needed:
 1. Shot type (top-down, lateral, close-up, animation, title card).
 2. Subjects and their actions (verbs over nouns).
 3. Spatial layout when non-trivial.
-4. On-screen text — quote verbatim, preserve case + punctuation.
+4. On-screen text — quote verbatim, preserve case + punctuation, and
+   attribute its source: "title card", "lower-third", "subtitle",
+   "sign", "infographic", "label", etc.
 5. Background — mention only on change after the first block.
 
 Avoid repeating what an earlier block already established.
@@ -45,6 +47,19 @@ Avoid repeating what an earlier block already established.
 - Non-speech: `[lion roars]`, `[applause]`, `[wind]`.
 - Speech that crosses the window boundary: end with `…` and continue in
   the next block, starting with `…`.
+
+## Unreliable transcript
+
+If the transcript reads as gibberish — random words, broken syntax,
+or content wildly inconsistent with the visuals — whisper has likely
+failed (common for dialects or low-resource languages such as Swiss
+German). Mark the affected timecodes with `[⚠ transcript unreliable]`
+and skip the narration quote for them.
+
+Burned-in subtitles are visual content. They stay in the visual
+description with a source attribution (`subtitle reads: "We are
+here."`). Never promote them into the `>` blockquote that is reserved
+for spoken audio.
 
 ## What NOT to do
 

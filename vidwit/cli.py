@@ -65,6 +65,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ext", action="append", default=[], help="extra video extension (repeatable)")
     p.add_argument("--default-speaker", default=None, help="label transcribed words with this name")
     p.add_argument("--prompt", type=Path, default=None, help="path to system prompt markdown")
+    p.add_argument("--audio-language", default=None,
+                   help="ISO language hint for whisper (e.g. 'de'); skips auto-detect")
+    p.add_argument("--notes", default=None,
+                   help="free-text context forwarded to the LLM in every chunk")
 
     llm = p.add_argument_group("LLM")
     llm.add_argument("--llm", dest="llm_provider", default=None,
@@ -101,6 +105,8 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.jobs is not None: cfg = replace(cfg, jobs=args.jobs)
     if args.default_speaker: cfg = replace(cfg, default_speaker=args.default_speaker)
     if args.prompt: cfg = replace(cfg, prompt_path=args.prompt)
+    if args.audio_language: cfg = replace(cfg, audio_language=args.audio_language)
+    if args.notes: cfg = replace(cfg, notes=args.notes)
     if args.whisper_model: cfg = replace(cfg, whisper_model=args.whisper_model)
     if args.whisper_device: cfg = replace(cfg, whisper_device=args.whisper_device)
 

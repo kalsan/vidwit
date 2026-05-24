@@ -36,6 +36,18 @@ overlap = 1.0
 # prompt = "/path/to/custom_prompt.md"
 # jobs = 8
 
+[video]
+# Optional per-corpus hints. CLI flags of the same name override these.
+#
+# Audio language hint (ISO 639-1). Forces whisper to decode in that
+# language instead of auto-detecting. Useful when auto-detect picks
+# the wrong language (e.g. Swiss German often detected as German but
+# then transcribed as nonsense).
+# audio_language = "de"
+#
+# Free-text context forwarded to the LLM in every chunk.
+# notes = "Swiss German interview with English subtitles burned in."
+
 [paths]
 # yt-dlp-style overrides. Default: scratch sibling to video, output .md next to it.
 # home = "/path/to/outputs"

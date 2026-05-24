@@ -24,6 +24,10 @@ class CaptureMeta:
     height: int | None = None
     whisper_model: str | None = None
     duration_s: float | None = None  # full video duration
+    detected_language: str | None = None        # whisper-detected language code
+    detected_language_probability: float | None = None
+    audio_language_hint: str | None = None      # user-supplied --audio-language
+    notes: str | None = None                    # free-text from --notes
 
 
 @dataclass(slots=True, frozen=True)
@@ -94,9 +98,19 @@ def _meta_block(m: CaptureMeta, n_frames: int) -> str:
     if m.width and m.height:
         lines.append(f"- video resolution: {m.width}x{m.height}")
     if m.whisper_model:
-        lines.append(f"- transcript model: openai-whisper {m.whisper_model} (word-level timestamps)")
+        lines.append(f"- transcript model: faster-whisper {m.whisper_model} (word-level timestamps)")
     if m.duration_s is not None:
         lines.append(f"- total video duration: {m.duration_s:.2f} s")
+    if m.audio_language_hint:
+        lines.append(f"- audio language (user-supplied hint): {m.audio_language_hint}")
+    if m.detected_language:
+        conf = (
+            f" (confidence {m.detected_language_probability:.2f})"
+            if m.detected_language_probability is not None else ""
+        )
+        lines.append(f"- audio language (whisper-detected): {m.detected_language}{conf}")
+    if m.notes:
+        lines.append(f"- notes: {m.notes}")
     lines.append(
         "Note: events shorter than the frame spacing may be missed visually; "
         "rely on transcript timing for sub-frame events."

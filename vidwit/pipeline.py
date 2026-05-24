@@ -21,10 +21,20 @@ frame sampling rate, window length, overlap, resolution and transcript
 model. Calibrate your description against those — visual events
 shorter than the frame spacing may be missed in the frames and must be
 inferred from the transcript instead.
+If the transcript looks like gibberish (random words, broken syntax,
+or wildly inconsistent with the visible context), whisper has likely
+failed — common for dialects or low-resource languages such as Swiss
+German. Mark the affected timecodes with `[⚠ transcript unreliable]`
+and skip narration quotes for them. Burned-in subtitles, if present,
+belong in the visual description with an attribution like
+`subtitle reads: "Hello world"` — never promote them into the audio
+stream.
+
 Conventions:
 - Block header: `### [MM:SS.mmm – MM:SS.mmm) — short title [TAG]`
 - Tags: [FOOTAGE], [ANIM], [FOOTAGE + ANIM]
-- Quote on-screen text verbatim (preserve case).
+- Quote on-screen text verbatim (preserve case); attribute its source
+  (title card, lower-third, subtitle, sign, infographic, label, etc.).
 - Quote narration in `>` blockquotes with speaker + word-precise timecode.
 - Bracket non-speech audio: [lion roars].
 - Re-introduce background only on change.
@@ -67,6 +77,10 @@ def run_one(video: Path, cfg: Config) -> Path:
         height=info.height or None,
         whisper_model=cfg.whisper_model,
         duration_s=info.duration_s,
+        detected_language=tx.language,
+        detected_language_probability=tx.language_probability,
+        audio_language_hint=cfg.audio_language,
+        notes=cfg.notes,
     )
     tail: list[str] = []
     rolling_summary = ""
@@ -109,6 +123,11 @@ def _ensure_transcript(video: Path, layout: scratch.ScratchLayout, cfg: Config) 
         model_name=cfg.whisper_model,
         device=cfg.whisper_device,
         default_speaker=cfg.default_speaker,
+        language=cfg.audio_language,
+    )
+    log.info(
+        "whisper detected language=%s prob=%.2f",
+        tx.language, tx.language_probability or 0.0,
     )
     layout.transcript_json.write_text(tx.to_json(), encoding="utf-8")
     return tx

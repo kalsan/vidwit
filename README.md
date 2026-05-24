@@ -131,6 +131,8 @@ The most commonly used command-line flags are:
 --paths temp:DIR     place the scratch directory elsewhere
 --default-speaker S  label transcribed words with the speaker name S
 --prompt FILE        use a custom system prompt
+--audio-language CODE   ISO language hint for whisper (e.g. "de"); skips auto-detect
+--notes "TEXT"       free-text context forwarded to the LLM in every chunk
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
 --base-url URL       OpenAI-compatible endpoint URL
@@ -178,11 +180,39 @@ recurring entities. In particular:
 Every LLM call carries a `# Capture metadata` block that lists the
 frame sampling rate, the window length, the overlap with neighbouring
 windows, the source resolution, the whisper model used for
-transcription, and the total duration of the video. The model uses
-this metadata to calibrate its description. In particular, visual
-events shorter than the frame spacing may be missed in the supplied
-frames, and the model is expected to infer those from the transcript
-instead.
+transcription, the total duration of the video, the language whisper
+detected (with its confidence), and any user-supplied audio-language
+hint or free-form notes. The model uses this metadata to calibrate
+its description. In particular, visual events shorter than the frame
+spacing may be missed in the supplied frames, and the model is
+expected to infer those from the transcript instead.
+
+### Unreliable transcripts and burned-in subtitles
+
+Whisper is excellent for the languages it was trained on but can
+produce gibberish for regional dialects or low-resource languages
+(Swiss German is a common example). When the transcript reads as
+gibberish, the affected timecodes are tagged with
+`[⚠ transcript unreliable]` and the narration quote is skipped.
+
+Burned-in subtitles are not promoted into the audio stream — they
+are visual content. They stay in the visual description with a
+source attribution, the same way any other on-screen text would
+appear:
+
+```
+Visual: a man is speaking to camera; subtitle reads: "We are here."
+```
+
+Two flags help with these situations and can also be set under the
+`[video]` table in `vidwit.toml`:
+
+- `--audio-language CODE` forces whisper to decode in a specific
+  language instead of auto-detecting; useful when auto-detect picks
+  the wrong language for non-English speech.
+- `--notes "TEXT"` accepts arbitrary free text — dialect, situation,
+  burned-in subtitle presence — and forwards it verbatim to the LLM
+  in every chunk's capture metadata.
 
 ### Resumability
 

@@ -2,6 +2,10 @@
 # third-party sources (BBC, Nat Geo, etc.). Keep out of public repo.
 examples/private/
 
+# Real config files contain API keys. Only the .sample is committed.
+vidwit.toml
+config/vidwit.toml
+
 # Scratch + intermediate artefacts produced by vidwit runs
 .vidwit-tmp/
 *.md.part

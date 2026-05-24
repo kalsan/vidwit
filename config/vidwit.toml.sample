@@ -1,0 +1,42 @@
+# vidwit configuration. Copy to one of:
+#   - ./vidwit.toml             (project-local; recommended for dev)
+#   - ~/.config/vidwit/vidwit.toml
+# Or pass an explicit path via --config <path>.
+#
+# Precedence (highest wins):
+#   CLI flag  >  env var  >  this file  >  built-in default
+#
+# This file contains secrets. Never commit a populated copy. The repo
+# already gitignores `vidwit.toml`.
+
+[llm]
+# provider: "anthropic" | "openai" | "lmstudio" | "dummy"
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+# api_key = "sk-ant-..."        # paste your real key here
+
+# For OpenAI-compat / LM Studio:
+# provider = "lmstudio"
+# model = "qwen2-vl-7b-instruct"
+# base_url = "http://localhost:1234/v1"
+# api_key = "lm-studio"          # any non-empty string works for LM Studio
+
+max_output_tokens = 2048
+
+[whisper]
+# faster-whisper model name (tiny / base / small / medium / large-v3)
+model = "small"
+# device = "auto"                 # "auto" | "cpu" | "cuda"
+
+[defaults]
+fps = 1.0
+window = 10.0
+overlap = 1.0
+# default_speaker = "Narrator"
+# prompt = "/path/to/custom_prompt.md"
+# jobs = 8
+
+[paths]
+# yt-dlp-style overrides. Default: scratch sibling to video, output .md next to it.
+# home = "/path/to/outputs"
+# temp = "/fast-ssd/vidwit-scratch"

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vidwit"
+version = "0.1.0"
+description = "Multimodal video witness — local CLI that turns a video into an exhaustive markdown record."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Sandro Kalbermatter", email = "sandro@storabble.com" }]
+# Runtime also requires `ffmpeg` + `ffprobe` on PATH.
+# LLM calls use stdlib urllib (no SDK deps).
+dependencies = [
+    "faster-whisper>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+vidwit = "vidwit.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vidwit"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

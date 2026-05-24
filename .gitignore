@@ -1,0 +1,21 @@
+# Local private examples — may include copyrighted material from
+# third-party sources (BBC, Nat Geo, etc.). Keep out of public repo.
+examples/private/
+
+# Scratch + intermediate artefacts produced by vidwit runs
+.vidwit-tmp/
+*.md.part
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

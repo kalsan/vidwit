@@ -215,28 +215,43 @@ identical input, identical output, no surprises.
 ## Open questions (decide before coding)
 
 - ~~**Frame rate**~~ — **Decided**: 1 fps default, override via `--fps` CLI flag.
-- **Window length**: 10 s? 15 s? Depends on model context + visual rate.
-- **Which LLM**: need a vision model with **large context** and good
-  image-grounding. Candidates: Claude Opus / Sonnet 4.x (1M ctx),
-  GPT-4.1, Gemini 2.5 Pro. Local (LM Studio) likely too weak for the
-  fidelity we want — confirm.
-- **How much overlap** between adjacent windows (so we don't cut a
-  sentence / a visual event in half)? 1 s overlap?
+- ~~**Window length**~~ — **Decided**: 10 s default, override via `--window` CLI flag (seconds).
+- ~~**Which LLM**~~ — **Decided**: generic backend via config. Test matrix:
+  - Anthropic Claude — Sonnet 4.6 (cheap) + Opus 4.7 (premium).
+  - Self-hosted via LM Studio on RTX 1080 Ti (11 GB VRAM). If a model
+    fits and works there, it works anywhere. Likely candidates: small
+    vision models (e.g. Qwen2-VL-7B, InternVL2-8B-class).
+  Config picks: provider, model id, endpoint URL, API key.
+- ~~**Window overlap**~~ — **Decided**: 1 s default (10 %), override via
+  `--overlap SECONDS` (0 disables). Rationale: ASR community (Whisper,
+  WhisperX) uses 0.5–2 s overlap to avoid mid-sentence cuts; doc
+  chunking norm is 10–20 %. Assembler dedupes by word timestamps
+  (whisper word-level), prefers later chunk for visual content in
+  overlap region (more rolling context). Cost: ~10 % extra LLM tokens.
 - ~~**Speaker pipeline**~~ — **Decided**: skip in v1. Add pyannote +
   insightface in v2 once core loop works.
 - ~~**Storage**~~ — **Decided**: write `foo.md` next to `foo.mp4`. No
   database. Optional corpus state in `<corpus>/.vidwit/`.
-- **Resumability**: if the loop crashes at chunk 47/120, can we resume?
-  Persist intermediate chunks under a `.vidwit-tmp/<video-hash>/` dir
-  so `--resume` skips already-done chunks.
-- **Cost ceiling**: a 30-min video at 1 fps = 1800 frames; chunked into
-  10 s windows = 180 LLM calls. Budget per video?
-- **Scratch dir location**: `$TMPDIR` (default) vs sibling
-  `.vidwit-tmp/`. Sibling makes `--resume` discoverable; tmp makes
-  clean-up automatic.
-- **Concurrency**: multiple input files — process sequentially or in
-  parallel? Whisper + LLM are I/O- and GPU-bound respectively, so naive
-  parallelism is risky. Default sequential, expose `--jobs N` later.
+- ~~**Resumability**~~ — **Decided**: yes. Persist each chunk's output
+  under sibling scratch dir `.vidwit-tmp/<video-hash>/chunks/NNNN.md`.
+  `--resume` skips chunks already on disk and continues. Rolling
+  summary state also persisted (`state.json`) so context survives
+  restart.
+- ~~**Cost ceiling**~~ — **Deferred**: not in v1. Add a ceiling flag
+  later when scaling past test videos. Likely token-based
+  (`--max-tokens`) since provider-agnostic.
+- ~~**Scratch dir location**~~ — **Decided**: mirror yt-dlp model.
+  - Default: scratch sibling to output, `<video-dir>/.vidwit-tmp/<video-hash>/`.
+  - Write `<video>.md.part` during run; atomic rename to `<video>.md`
+    on success. `.part` survives crash → `--resume` finds it.
+  - `--paths` flag per category (yt-dlp style):
+    `--paths temp:/fast-ssd/vidwit` → scratch elsewhere,
+    `--paths home:/out` → final `.md` elsewhere.
+  - Scratch cleaned on success unless `--keep-scratch`.
+- ~~**Concurrency**~~ — **Decided**: within a single video, use
+  `nproc` for parallelisable tools (ffmpeg threads, whisper workers).
+  No pipelining across videos for now — process input list
+  sequentially. Multi-video parallelism deferred.
 
 ## Test video — decided category
 

@@ -101,6 +101,7 @@ def run_one(video: Path, cfg: Config) -> Path:
     total = len(plan)
     run_start = time.monotonic()
     completed_this_run = 0
+    cumulative_tokens = 0
     for w in plan:
         chunk_path = layout.chunks_dir / f"{w.label}.md"
         if chunk_path.exists() and cfg.resume:
@@ -112,22 +113,32 @@ def run_one(video: Path, cfg: Config) -> Path:
             "chunk %d/%d [%s – %s) start",
             w.index + 1, total, _fmt(w.start), _fmt(w.end),
         )
-        body = _process_window(
+        body, usage = _process_window(
             w, frames, tx, cfg, provider, system_prompt, tail, rolling_summary, meta,
         )
         body = _sanitise_chunk(body)
         chunk_path.write_text(body, encoding="utf-8")
         tail = _push_tail(tail, body)
         completed_this_run += 1
+        cumulative_tokens += usage.total
         dt = time.monotonic() - t0
         elapsed = time.monotonic() - run_start
         avg = elapsed / completed_this_run
         remaining = total - (w.index + 1)
         eta_s = avg * remaining
         log.info(
-            "chunk %d/%d done in %.1fs (avg %.1fs/chunk, ETA %s for %d more)",
+            "chunk %d/%d done in %.1fs (avg %.1fs/chunk, ETA %s for %d more) "
+            "[+%d tok, total %d]",
             w.index + 1, total, dt, avg, _fmt_eta(eta_s), remaining,
+            usage.total, cumulative_tokens,
         )
+        if cfg.max_tokens is not None and cumulative_tokens >= cfg.max_tokens:
+            log.warning(
+                "cumulative tokens %d >= cap %d; aborting after chunk %d/%d, "
+                "will assemble what is done",
+                cumulative_tokens, cfg.max_tokens, w.index + 1, total,
+            )
+            break
 
     # 4. Assemble + atomic publish via .part.
     final_md = assemble(layout.chunks_dir, video.name)
@@ -188,7 +199,7 @@ def _process_window(
     tail: list[str],
     rolling_summary: str,
     _meta: llm.CaptureMeta,
-) -> str:
+) -> tuple[str, llm.Usage]:
     # Frame index = floor(t * fps). Frames are 1-indexed by ffmpeg (f_00000001.jpg).
     first = max(1, int(w.start * cfg.fps) + 1)
     last = max(first, int(w.end * cfg.fps))

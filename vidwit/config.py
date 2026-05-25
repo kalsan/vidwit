@@ -43,6 +43,7 @@ class Config:
     output_override: Path | None = None  # explicit -o/--output path; single-input only
     frame_width: int = 256             # downscale frames to fit within W x H (aspect preserved)
     frame_height: int = 144
+    max_tokens: int | None = None      # cumulative LLM token cap per video; abort + assemble when exceeded
     llm: LLMConfig = field(default_factory=LLMConfig)
 
 
@@ -86,6 +87,7 @@ def from_file(path: Path, base: Config | None = None) -> Config:
         prompt_path=Path(defaults["prompt"]).expanduser() if "prompt" in defaults else cfg.prompt_path,
         frame_width=int(defaults.get("frame_width", cfg.frame_width)),
         frame_height=int(defaults.get("frame_height", cfg.frame_height)),
+        max_tokens=defaults.get("max_tokens", cfg.max_tokens),
     )
 
     whisper = data.get("whisper", {}) or {}

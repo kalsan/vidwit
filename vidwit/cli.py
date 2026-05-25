@@ -86,6 +86,11 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="downscale frames to fit within this width (default 256)")
     p.add_argument("--frame-height", type=int, default=None,
                    help="downscale frames to fit within this height (default 144)")
+    p.add_argument(
+        "--max-tokens", type=int, default=None,
+        help="cumulative LLM token cap per video; abort and assemble what is "
+             "done when exceeded. None = no cap.",
+    )
 
     llm = p.add_argument_group("LLM")
     llm.add_argument("--llm", dest="llm_provider", default=None,
@@ -137,6 +142,7 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.output: cfg = replace(cfg, output_override=args.output.expanduser())
     if args.frame_width is not None: cfg = replace(cfg, frame_width=args.frame_width)
     if args.frame_height is not None: cfg = replace(cfg, frame_height=args.frame_height)
+    if args.max_tokens is not None: cfg = replace(cfg, max_tokens=args.max_tokens)
     if args.whisper_model: cfg = replace(cfg, whisper_model=args.whisper_model)
     if args.whisper_device: cfg = replace(cfg, whisper_device=args.whisper_device)
 

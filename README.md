@@ -152,6 +152,7 @@ The most commonly used command-line flags are:
 -o, --output PATH    explicit output file path (single-input only); relative or absolute
 --frame-width N      downscale frames to fit within this width (default 256)
 --frame-height N     downscale frames to fit within this height (default 144)
+--max-tokens N       cumulative LLM token cap per video; abort + assemble what is done
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
 --base-url URL       OpenAI-compatible endpoint URL
@@ -326,11 +327,13 @@ both readable and machine-parseable:
 - Local-first CLI with no service and no database.
 - ffmpeg, faster-whisper, and a vision LLM (Anthropic or any
   OpenAI-compatible endpoint).
-- Iterative chunked loop with rolling context.
+- Iterative chunked loop with rolling context (sliding tail of the
+  last couple of chunks).
 - Resumable runs; yt-dlp-style scratch and output paths.
-- A cost ceiling is not yet implemented; when it is added it will most
-  likely be token-based via a `--max-tokens` flag, so that it is
-  provider-agnostic.
+- Token-based cost ceiling via `--max-tokens N`: vidwit accumulates
+  every LLM call's input + output tokens per video, and once the
+  total exceeds the cap it stops issuing new calls, assembles
+  whatever is already on disk, and writes the partial `<video>.md`.
 
 ### v2 — speaker awareness (if possible)
 

@@ -42,8 +42,21 @@ class ChunkRequest:
     meta: CaptureMeta | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class Usage:
+    """Normalised token usage returned by an LLM call."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.input_tokens + self.output_tokens
+
+
 class Provider(Protocol):
-    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str: ...
+    def vision_chat(
+        self, req: ChunkRequest, max_output_tokens: int
+    ) -> tuple[str, Usage]: ...
 
 
 def build(cfg: LLMConfig) -> Provider:
@@ -147,7 +160,7 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float = 600.0) -
 class DummyProvider:
     """No-network placeholder. Useful for scaffolding + offline tests."""
 
-    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str:
+    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> tuple[str, Usage]:
         ts = f"[{_fmt(req.window_start_s)} – {_fmt(req.window_end_s)})"
         body = [
             f"### {ts} — (dummy chunk)",
@@ -158,7 +171,7 @@ class DummyProvider:
         ]
         if req.transcript_lines:
             body.append("> " + " ".join(req.transcript_lines))
-        return "\n".join(body)
+        return "\n".join(body), Usage()
 
 
 class AnthropicProvider:
@@ -181,7 +194,7 @@ class AnthropicProvider:
         self.request_timeout = request_timeout
         self.extra_body = extra_body or {}
 
-    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str:
+    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> tuple[str, Usage]:
         content: list[dict] = []
         for f in req.frames:
             mime, data = _b64_image(f)
@@ -202,7 +215,13 @@ class AnthropicProvider:
             "anthropic-version": self.API_VERSION,
         }
         data = _post_json(self.API_URL, payload, headers, timeout=self.request_timeout)
-        return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+        text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+        u = data.get("usage") or {}
+        usage = Usage(
+            input_tokens=int(u.get("input_tokens") or 0),
+            output_tokens=int(u.get("output_tokens") or 0),
+        )
+        return text, usage
 
 
 class OpenAICompatProvider:
@@ -222,7 +241,7 @@ class OpenAICompatProvider:
         self.request_timeout = request_timeout
         self.extra_body = extra_body or {}
 
-    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str:
+    def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> tuple[str, Usage]:
         content: list[dict] = []
         for f in req.frames:
             mime, data = _b64_image(f)
@@ -245,11 +264,16 @@ class OpenAICompatProvider:
             f"{self.base_url}/chat/completions", payload, headers,
             timeout=self.request_timeout,
         )
+        u = data.get("usage") or {}
+        usage = Usage(
+            input_tokens=int(u.get("prompt_tokens") or 0),
+            output_tokens=int(u.get("completion_tokens") or 0),
+        )
         choices = data.get("choices") or []
         if not choices:
-            return ""
+            return "", usage
         msg = choices[0].get("message", {})
-        return msg.get("content") or ""
+        return (msg.get("content") or ""), usage
 
 
 def _fmt(t: float) -> str:

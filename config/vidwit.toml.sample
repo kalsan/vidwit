@@ -23,6 +23,16 @@ model = "claude-sonnet-4-6"
 
 max_output_tokens = 2048
 
+# Optional secondary text-only LLM for the rolling "story so far". The
+# rolling summary itself is enabled by default and runs on the primary
+# LLM unless you uncomment this table to point it at a cheaper model.
+# Use --no-summary on the CLI to disable the rolling summary entirely.
+# [llm.summary]
+# provider = "lmstudio"
+# model = "google/gemma-4-e4b"
+# base_url = "http://10.9.1.117:1234/v1"
+# max_output_tokens = 600
+
 [whisper]
 # faster-whisper model name (tiny / base / small / medium / large-v3)
 model = "small"

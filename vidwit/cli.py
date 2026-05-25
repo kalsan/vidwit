@@ -86,12 +86,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--frame-height", type=int, default=None,
                    help="downscale frames to fit within this height (default 144)")
 
-    llm = p.add_argument_group("LLM")
+    llm = p.add_argument_group("LLM (primary vision model)")
     llm.add_argument("--llm", dest="llm_provider", default=None,
                      choices=["dummy", "anthropic", "openai", "lmstudio"])
     llm.add_argument("--model", dest="llm_model", default=None)
     llm.add_argument("--base-url", dest="llm_base_url", default=None,
                      help="OpenAI-compatible endpoint (e.g. http://localhost:1234/v1)")
+
+    sllm = p.add_argument_group(
+        "Rolling summary (on by default; uses the primary LLM unless these "
+        "flags or [llm.summary] in vidwit.toml override the model)."
+    )
+    sllm.add_argument("--no-summary", action="store_true",
+                      help="disable the rolling 'story so far' loop entirely")
+    sllm.add_argument("--summary-llm", dest="summary_provider", default=None,
+                      choices=["dummy", "anthropic", "openai", "lmstudio"])
+    sllm.add_argument("--summary-model", dest="summary_model", default=None)
+    sllm.add_argument("--summary-base-url", dest="summary_base_url", default=None)
 
     p.add_argument("--whisper-model", default=None,
                    help="whisper model name (tiny, base, small, medium, large-v3)")
@@ -142,6 +153,18 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.llm_model: llm = replace(llm, model=args.llm_model)
     if args.llm_base_url: llm = replace(llm, base_url=args.llm_base_url)
     cfg = replace(cfg, llm=llm)
+
+    if args.no_summary:
+        cfg = replace(cfg, rolling_summary=False)
+    # Any --summary-* override merges over [llm.summary] from config.
+    if args.summary_provider or args.summary_model or args.summary_base_url:
+        base = cfg.summary_llm or cfg_mod.LLMConfig(
+            provider=cfg.llm.provider, api_key=cfg.llm.api_key, max_output_tokens=600,
+        )
+        if args.summary_provider: base = replace(base, provider=args.summary_provider)
+        if args.summary_model: base = replace(base, model=args.summary_model)
+        if args.summary_base_url: base = replace(base, base_url=args.summary_base_url)
+        cfg = replace(cfg, summary_llm=base)
 
     return cfg
 

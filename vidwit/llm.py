@@ -84,7 +84,12 @@ def _user_text(req: ChunkRequest) -> str:
     if req.tail_chunks:
         parts.append("\n# Recent witness output (verbatim tail)\n" + "\n---\n".join(req.tail_chunks))
     if req.transcript_lines:
-        parts.append("\n# Transcript (word-level, this window)\n" + "\n".join(req.transcript_lines))
+        parts.append(
+            "\n# Speech segments (whisper, this window)\n"
+            "# Each line is a single utterance with word-precise timecodes.\n"
+            "# Quote them verbatim inside `>` blockquotes; do not re-synthesise.\n"
+            + "\n".join(req.transcript_lines)
+        )
     parts.append(
         "\n# Task\n"
         "Write the witness record for this window only, following the format conventions."

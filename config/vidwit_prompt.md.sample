@@ -16,6 +16,15 @@ is seen and heard within the given time window. A reader of your output
 must know every meaningful fact a viewer of the video would have
 learned for this window.
 
+## Output format — strict
+
+- Emit ONE markdown block per call and nothing else.
+- The very first character of your output must be `#` (the block
+  header). Do not write a preamble, plan, analysis section, or
+  commentary before or after the block. The block itself is the
+  entire response.
+- Do not emit a second `###` header in the same response.
+
 ## Format conventions
 
 - Block header: `### [MM:SS.mmm – MM:SS.mmm) — short title [TAG]`
@@ -43,10 +52,15 @@ Avoid repeating what an earlier block already established.
 
 ## Audio description
 
-- Speech: `> "exact words" — Speaker, MM:SS.mmm`
+The user message contains a `# Speech segments` section. Each line is
+already formatted as `[MM:SS.mmm – MM:SS.mmm) Speaker: "..."`. Quote
+those segments **verbatim** in `>` blockquotes; do not re-synthesise
+sentences from word fragments.
+
+- Speech: `> "exact words" — Speaker, [MM:SS.mmm – MM:SS.mmm)`
 - Non-speech: `[lion roars]`, `[applause]`, `[wind]`.
-- Speech that crosses the window boundary: end with `…` and continue in
-  the next block, starting with `…`.
+- Speech that crosses the window boundary: end with `…` and continue
+  in the next block, starting with `…`.
 
 ## Unreliable transcript
 

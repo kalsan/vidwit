@@ -71,6 +71,20 @@ inference through `ctranslate2`. The Anthropic and OpenAI Python SDKs
 are also not required, because vidwit uses the standard library's
 `urllib` to call the HTTP endpoints directly.
 
+After the editable install, the `vidwit` entry point lives inside the
+virtual environment at `.venv/bin/vidwit`. You can invoke it in three
+equivalent ways:
+
+```bash
+.venv/bin/vidwit path/to/video.mp4       # explicit, no shell setup needed
+source .venv/bin/activate                # then plain `vidwit ...` works
+python3 -m vidwit path/to/video.mp4      # works without installing the script
+```
+
+The rest of this README uses the bare `vidwit` form for brevity. Prefix
+with `.venv/bin/` or activate the venv first if the command is not on
+your `PATH`.
+
 The first run downloads the chosen whisper model into
 `~/.cache/huggingface/hub/`. The default model is `small`, which is
 roughly 480 MB on disk. For a smaller first download, choose `tiny`
@@ -111,6 +125,8 @@ vidwit path/to/video.mp4
 vidwit path/to/video1.mp4 path/to/video2.mkv
 vidwit path/to/dir/    # recurses, picks up files by extension
 ```
+
+**If the `vidwit` command is not available, use the activation script or an alternative form (see above).**
 
 For each input video `foo.mp4`, vidwit writes `foo.md` next to it in
 the same directory and under the same basename. The default set of

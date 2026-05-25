@@ -42,9 +42,6 @@ class Config:
     frame_width: int = 256             # downscale frames to fit within W x H (aspect preserved)
     frame_height: int = 144
     llm: LLMConfig = field(default_factory=LLMConfig)
-    rolling_summary: bool = True       # maintain "story so far" across chunks
-    summary_llm: LLMConfig | None = None  # optional secondary LLM for the summary; falls back to primary
-    summary_max_chars: int = 2000      # soft cap on persisted summary length
 
 
 def from_env(base: Config | None = None) -> Config:
@@ -114,19 +111,6 @@ def from_file(path: Path, base: Config | None = None) -> Config:
             max_output_tokens=int(llm_data.get("max_output_tokens", cfg.llm.max_output_tokens)),
         ),
     )
-
-    summary_data = llm_data.get("summary")
-    if isinstance(summary_data, dict) and summary_data:
-        cfg = replace(
-            cfg,
-            summary_llm=LLMConfig(
-                provider=summary_data.get("provider", cfg.llm.provider),
-                model=summary_data.get("model", ""),
-                base_url=summary_data.get("base_url"),
-                api_key=summary_data.get("api_key", cfg.llm.api_key),
-                max_output_tokens=int(summary_data.get("max_output_tokens", 600)),
-            ),
-        )
 
     paths = data.get("paths", {}) or {}
     cfg = replace(

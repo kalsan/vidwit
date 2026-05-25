@@ -139,10 +139,6 @@ The most commonly used command-line flags are:
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
 --base-url URL       OpenAI-compatible endpoint URL
---no-summary         disable the rolling "story so far" loop (on by default)
---summary-llm PROV   override the LLM used for the rolling summary (defaults to primary)
---summary-model NAME
---summary-base-url URL
 --whisper-model NAME tiny / base / small / medium / large-v3
 ```
 
@@ -181,24 +177,6 @@ recurring entities. In particular:
   window where they appear.
 - The model should not restate background information that has already
   been established in earlier windows.
-
-vidwit ships with two complementary mechanisms for rolling context:
-
-1. **Sliding tail**: the verbatim markdown of the last couple of
-   chunks is prepended to each new chunk's prompt. Always on. Cheap
-   and lossless for the immediately preceding context.
-2. **Rolling summary**: a "story so far" string is maintained across
-   all chunks and updated after each one. **On by default**, using
-   the primary LLM for the summary call. Disable with `--no-summary`.
-   You can also point the summary at a different (typically smaller
-   and cheaper) text-only model by setting `[llm.summary]` in
-   `vidwit.toml` or by passing `--summary-llm`, `--summary-model`, or
-   `--summary-base-url` on the command line, which keeps the main
-   vision LLM unburdened by the summary call.
-
-The latest summary is persisted to `state.json` in the scratch
-directory so that resumed runs continue with the same continuity
-state.
 
 ### Capture metadata sent to the LLM
 

@@ -44,7 +44,6 @@ class ChunkRequest:
 
 class Provider(Protocol):
     def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str: ...
-    def text_chat(self, system: str, user: str, max_output_tokens: int) -> str: ...
 
 
 def build(cfg: LLMConfig) -> Provider:
@@ -149,9 +148,6 @@ class DummyProvider:
             body.append("> " + " ".join(req.transcript_lines))
         return "\n".join(body)
 
-    def text_chat(self, system: str, user: str, max_output_tokens: int) -> str:
-        return f"(dummy summary; {len(user)} chars of input)"
-
 
 class AnthropicProvider:
     """Anthropic Messages API via raw HTTPS (no SDK)."""
@@ -184,17 +180,6 @@ class AnthropicProvider:
             "x-api-key": self.api_key,
             "anthropic-version": self.API_VERSION,
         }
-        data = _post_json(self.API_URL, payload, headers)
-        return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
-
-    def text_chat(self, system: str, user: str, max_output_tokens: int) -> str:
-        payload = {
-            "model": self.model,
-            "max_tokens": max_output_tokens,
-            "system": system,
-            "messages": [{"role": "user", "content": [{"type": "text", "text": user}]}],
-        }
-        headers = {"x-api-key": self.api_key, "anthropic-version": self.API_VERSION}
         data = _post_json(self.API_URL, payload, headers)
         return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
 
@@ -231,56 +216,6 @@ class OpenAICompatProvider:
             return ""
         msg = choices[0].get("message", {})
         return msg.get("content") or ""
-
-    def text_chat(self, system: str, user: str, max_output_tokens: int) -> str:
-        payload = {
-            "model": self.model,
-            "max_tokens": max_output_tokens,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        }
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        data = _post_json(f"{self.base_url}/chat/completions", payload, headers)
-        choices = data.get("choices") or []
-        if not choices:
-            return ""
-        msg = choices[0].get("message", {})
-        return msg.get("content") or ""
-
-
-_SUMMARY_SYSTEM = """\
-You maintain a 'story so far' for a video witness pipeline. Given the
-previous summary and the newest scene's witness markdown, return an
-updated summary that preserves continuity for later scenes.
-
-Keep:
-- Named entities (people, places, animals, objects) with their stable identities.
-- Active through-lines (what was introduced and is still in play).
-- Currently-established background (so later scenes can reference it
-  without re-describing).
-
-Drop redundant detail and chronology trivia. Past tense, third person.
-Plain prose, no bullet lists, no headings, no quotes. Keep it under
-~{max_chars} characters.
-"""
-
-
-def summarize(
-    provider: Provider,
-    prev_summary: str,
-    new_chunk_md: str,
-    max_chars: int = 2000,
-    max_output_tokens: int = 600,
-) -> str:
-    system = _SUMMARY_SYSTEM.format(max_chars=max_chars)
-    user = (
-        f"PREVIOUS SUMMARY:\n{prev_summary or '(none yet)'}\n\n"
-        f"NEW SCENE:\n{new_chunk_md}"
-    )
-    out = provider.text_chat(system, user, max_output_tokens=max_output_tokens)
-    return out.strip()
 
 
 def _fmt(t: float) -> str:

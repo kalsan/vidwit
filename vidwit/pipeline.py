@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import shutil
 import time
@@ -70,22 +69,6 @@ def run_one(video: Path, cfg: Config) -> Path:
              len(plan), cfg.window, cfg.overlap)
 
     provider = llm.build(cfg.llm)
-    if cfg.rolling_summary:
-        if cfg.summary_llm is not None:
-            summary_provider = llm.build(cfg.summary_llm)
-            summary_token_cap = cfg.summary_llm.max_output_tokens
-            log.info(
-                "rolling summary on (secondary: %s/%s)",
-                cfg.summary_llm.provider, cfg.summary_llm.model or "(default)",
-            )
-        else:
-            summary_provider = provider
-            summary_token_cap = min(600, cfg.llm.max_output_tokens)
-            log.info("rolling summary on (using primary LLM)")
-    else:
-        summary_provider = None
-        summary_token_cap = 0
-        log.info("rolling summary off")
     system_prompt = _read_prompt(cfg)
     meta = llm.CaptureMeta(
         fps=cfg.fps,
@@ -100,9 +83,8 @@ def run_one(video: Path, cfg: Config) -> Path:
         audio_language_hint=cfg.audio_language,
         notes=cfg.notes,
     )
-    state = _load_state(layout.state_json) if cfg.resume else {}
-    rolling_summary = state.get("rolling_summary", "") if summary_provider is not None else ""
     tail: list[str] = []
+    rolling_summary = ""
 
     total = len(plan)
     run_start = time.monotonic()
@@ -123,16 +105,6 @@ def run_one(video: Path, cfg: Config) -> Path:
         )
         chunk_path.write_text(body, encoding="utf-8")
         tail = _push_tail(tail, body)
-        if summary_provider is not None:
-            try:
-                rolling_summary = llm.summarize(
-                    summary_provider, rolling_summary, body,
-                    max_chars=cfg.summary_max_chars,
-                    max_output_tokens=summary_token_cap,
-                )
-                _save_state(layout.state_json, {"rolling_summary": rolling_summary})
-            except Exception:
-                log.exception("rolling summary update failed; continuing without update")
         completed_this_run += 1
         dt = time.monotonic() - t0
         elapsed = time.monotonic() - run_start
@@ -242,19 +214,6 @@ def _read_prompt(cfg: Config) -> str:
     if cfg.prompt_path and cfg.prompt_path.exists():
         return cfg.prompt_path.read_text(encoding="utf-8")
     return _DEFAULT_SYSTEM_PROMPT
-
-
-def _load_state(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _save_state(path: Path, state: dict) -> None:
-    path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
 
 
 def _fmt_eta(seconds: float) -> str:

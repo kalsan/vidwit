@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from dataclasses import replace
@@ -92,6 +93,16 @@ def _build_parser() -> argparse.ArgumentParser:
     llm.add_argument("--model", dest="llm_model", default=None)
     llm.add_argument("--base-url", dest="llm_base_url", default=None,
                      help="OpenAI-compatible endpoint (e.g. http://localhost:1234/v1)")
+    llm.add_argument("--timeout", dest="llm_timeout", type=float, default=None,
+                     help="HTTP timeout for LLM requests in seconds (default 600)")
+    llm.add_argument(
+        "--extra-body", dest="llm_extra_body", action="append", default=[],
+        metavar="KEY=JSON",
+        help="extra field merged into the chat-completions request payload. "
+             "VALUE is parsed as JSON; falls back to string on parse failure. "
+             "Repeatable. Example: "
+             "--extra-body 'chat_template_kwargs={\"enable_thinking\":false}'",
+    )
 
     p.add_argument("--whisper-model", default=None,
                    help="whisper model name (tiny, base, small, medium, large-v3)")
@@ -141,6 +152,10 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.llm_provider: llm = replace(llm, provider=args.llm_provider)
     if args.llm_model: llm = replace(llm, model=args.llm_model)
     if args.llm_base_url: llm = replace(llm, base_url=args.llm_base_url)
+    if args.llm_timeout is not None: llm = replace(llm, request_timeout=args.llm_timeout)
+    if args.llm_extra_body:
+        merged = {**llm.extra_body, **_parse_extra_body(args.llm_extra_body)}
+        llm = replace(llm, extra_body=merged)
     cfg = replace(cfg, llm=llm)
 
     return cfg
@@ -161,6 +176,21 @@ def _parse_paths(items: list[str]) -> tuple[Path | None, Path | None]:
         else:
             raise SystemExit(f"--paths unknown key {key!r} (want home or temp)")
     return home, temp
+
+
+def _parse_extra_body(items: list[str]) -> dict:
+    out: dict = {}
+    for raw in items:
+        if "=" not in raw:
+            raise SystemExit(f"--extra-body expects KEY=VALUE, got {raw!r}")
+        key, val = raw.split("=", 1)
+        key = key.strip()
+        try:
+            parsed = json.loads(val)
+        except json.JSONDecodeError:
+            parsed = val
+        out[key] = parsed
+    return out
 
 
 def _normalise_ext(ext: str) -> str:

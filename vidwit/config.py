@@ -13,11 +13,13 @@ CONFIG_FILENAME = "vidwit.toml"
 
 @dataclass(slots=True)
 class LLMConfig:
-    provider: str = "dummy"  # "anthropic" | "openai" | "dummy"
+    provider: str = "dummy"  # "anthropic" | "openai" | "lmstudio" | "dummy"
     model: str = ""
     base_url: str | None = None
     api_key: str | None = None
     max_output_tokens: int = 2048
+    request_timeout: float = 600.0          # seconds; bumped for slow local models
+    extra_body: dict = field(default_factory=dict)  # merged into chat-completions payload
 
 
 @dataclass(slots=True)
@@ -101,6 +103,7 @@ def from_file(path: Path, base: Config | None = None) -> Config:
     )
 
     llm_data = data.get("llm", {}) or {}
+    eb = llm_data.get("extra_body") or {}
     cfg = replace(
         cfg,
         llm=LLMConfig(
@@ -109,6 +112,8 @@ def from_file(path: Path, base: Config | None = None) -> Config:
             base_url=llm_data.get("base_url", cfg.llm.base_url),
             api_key=llm_data.get("api_key", cfg.llm.api_key),
             max_output_tokens=int(llm_data.get("max_output_tokens", cfg.llm.max_output_tokens)),
+            request_timeout=float(llm_data.get("request_timeout", cfg.llm.request_timeout)),
+            extra_body=dict(eb) if isinstance(eb, dict) else {},
         ),
     )
 

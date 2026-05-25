@@ -139,6 +139,10 @@ The most commonly used command-line flags are:
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
 --base-url URL       OpenAI-compatible endpoint URL
+--timeout SECONDS    HTTP timeout for each LLM call (default 600)
+--extra-body K=JSON  extra field merged into the chat-completions payload;
+                     repeatable. Example: --extra-body
+                     'chat_template_kwargs={"enable_thinking":false}'
 --whisper-model NAME tiny / base / small / medium / large-v3
 ```
 

@@ -51,12 +51,19 @@ def build(cfg: LLMConfig) -> Provider:
     if p == "dummy":
         return DummyProvider()
     if p == "anthropic":
-        return AnthropicProvider(model=cfg.model or "claude-sonnet-4-6", api_key=cfg.api_key)
+        return AnthropicProvider(
+            model=cfg.model or "claude-sonnet-4-6",
+            api_key=cfg.api_key,
+            request_timeout=cfg.request_timeout,
+            extra_body=dict(cfg.extra_body),
+        )
     if p in ("openai", "lmstudio", "openai-compat"):
         return OpenAICompatProvider(
             model=cfg.model,
             base_url=cfg.base_url or "https://api.openai.com/v1",
             api_key=cfg.api_key or "lm-studio",
+            request_timeout=cfg.request_timeout,
+            extra_body=dict(cfg.extra_body),
         )
     raise ValueError(f"unknown llm provider: {cfg.provider}")
 
@@ -118,7 +125,7 @@ def _meta_block(m: CaptureMeta, n_frames: int) -> str:
     return "\n".join(lines)
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: float = 180.0) -> dict:
+def _post_json(url: str, payload: dict, headers: dict, timeout: float = 600.0) -> dict:
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST")
     for k, v in headers.items():
@@ -155,11 +162,19 @@ class AnthropicProvider:
     API_URL = "https://api.anthropic.com/v1/messages"
     API_VERSION = "2023-06-01"
 
-    def __init__(self, model: str, api_key: str | None):
+    def __init__(
+        self,
+        model: str,
+        api_key: str | None,
+        request_timeout: float = 600.0,
+        extra_body: dict | None = None,
+    ):
         if not api_key:
             raise RuntimeError("anthropic provider needs api_key (ANTHROPIC_API_KEY)")
         self.model = model
         self.api_key = api_key
+        self.request_timeout = request_timeout
+        self.extra_body = extra_body or {}
 
     def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str:
         content: list[dict] = []
@@ -175,22 +190,32 @@ class AnthropicProvider:
             "max_tokens": max_output_tokens,
             "system": req.system,
             "messages": [{"role": "user", "content": content}],
+            **self.extra_body,
         }
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": self.API_VERSION,
         }
-        data = _post_json(self.API_URL, payload, headers)
+        data = _post_json(self.API_URL, payload, headers, timeout=self.request_timeout)
         return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
 
 
 class OpenAICompatProvider:
     """OpenAI Chat Completions schema (works for OpenAI + LM Studio)."""
 
-    def __init__(self, model: str, base_url: str, api_key: str):
+    def __init__(
+        self,
+        model: str,
+        base_url: str,
+        api_key: str,
+        request_timeout: float = 600.0,
+        extra_body: dict | None = None,
+    ):
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
+        self.request_timeout = request_timeout
+        self.extra_body = extra_body or {}
 
     def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> str:
         content: list[dict] = []
@@ -208,9 +233,13 @@ class OpenAICompatProvider:
                 {"role": "system", "content": req.system},
                 {"role": "user", "content": content},
             ],
+            **self.extra_body,
         }
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        data = _post_json(f"{self.base_url}/chat/completions", payload, headers)
+        data = _post_json(
+            f"{self.base_url}/chat/completions", payload, headers,
+            timeout=self.request_timeout,
+        )
         choices = data.get("choices") or []
         if not choices:
             return ""

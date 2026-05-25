@@ -22,6 +22,14 @@ model = "claude-sonnet-4-6"
 # api_key = "lm-studio"          # any non-empty string works for LM Studio
 
 max_output_tokens = 2048
+# request_timeout = 600              # seconds; raise for slow local models
+
+# Optional passthrough into the chat-completions request body. Useful
+# for vendor-specific knobs that vidwit doesn't model explicitly, such
+# as disabling chain-of-thought on Gemma 4 / Qwen 3 to speed responses.
+# [llm.extra_body]
+# chat_template_kwargs = { enable_thinking = false }
+# reasoning_effort = "minimal"
 
 [whisper]
 # faster-whisper model name (tiny / base / small / medium / large-v3)

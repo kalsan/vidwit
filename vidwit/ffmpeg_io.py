@@ -74,16 +74,25 @@ def extract_frames(
     fps: float,
     threads: int = 0,
     quality: int = 4,
+    max_width: int | None = None,
+    max_height: int | None = None,
 ) -> list[Path]:
-    """Extract frames at given fps as JPEG. Returns paths sorted by index."""
+    """Extract frames at given fps as JPEG. Returns paths sorted by index.
+
+    If max_width and max_height are set, frames are downscaled to fit within
+    that box while preserving aspect ratio (no padding). 0 / None disables.
+    """
     require_ffmpeg()
     dst_dir.mkdir(parents=True, exist_ok=True)
     pattern = dst_dir / "f_%08d.jpg"
+    vf = f"fps={fps}"
+    if max_width and max_height:
+        vf += f",scale={max_width}:{max_height}:force_original_aspect_ratio=decrease"
     subprocess.run(
         [
             "ffmpeg", "-v", "error", "-y",
             "-i", str(src),
-            "-vf", f"fps={fps}",
+            "-vf", vf,
             "-q:v", str(quality),
             "-threads", str(threads),
             str(pattern),

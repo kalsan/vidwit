@@ -48,11 +48,25 @@ def scratch_for(video: Path, temp_root: Path | None) -> ScratchLayout:
     )
 
 
-def output_path(video: Path, home_root: Path | None) -> Path:
-    """Final .md path. `home:` override (yt-dlp-style) sends output elsewhere."""
+def output_path(
+    video: Path,
+    home_root: Path | None,
+    override: Path | None = None,
+) -> Path:
+    """Final .md path.
+
+    Precedence:
+      - `override` (-o/--output) wins absolutely; relative paths resolved
+        against cwd.
+      - else `home_root` (yt-dlp-style `--paths home:`) sets the output dir.
+      - else write next to the input video.
+    """
+    if override is not None:
+        return override if override.is_absolute() else Path.cwd() / override
+    stem = video.stem
     if home_root is None:
         return video.with_suffix(".md")
-    return home_root / (video.stem + ".md")
+    return home_root / (stem + ".md")
 
 
 def part_path(out: Path) -> Path:

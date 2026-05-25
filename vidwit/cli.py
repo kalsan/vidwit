@@ -25,6 +25,13 @@ def main(argv: list[str] | None = None) -> int:
     if not inputs:
         print("vidwit: no video inputs", file=sys.stderr)
         return 2
+    if cfg.output_override is not None and len(inputs) > 1:
+        print(
+            f"vidwit: -o/--output works only with a single input video "
+            f"(got {len(inputs)}). Use --paths home:DIR to redirect a batch.",
+            file=sys.stderr,
+        )
+        return 2
 
     rc = 0
     for v in inputs:
@@ -52,7 +59,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--window", type=float, default=None, help="window length seconds (default 10.0)")
     p.add_argument("--overlap", type=float, default=None, help="window overlap seconds (default 1.0)")
     p.add_argument("--overwrite", action="store_true", help="replace existing .md")
-    p.add_argument("--resume", action="store_true", help="resume partial run from scratch dir")
+    p.add_argument(
+        "--no-resume", action="store_true",
+        help="force re-run; ignore cached transcript/frames/chunks in scratch dir",
+    )
     p.add_argument("--keep-scratch", action="store_true", help="don't delete scratch dir on success")
     p.add_argument("--jobs", type=int, default=None, help="threads for ffmpeg/whisper (default nproc)")
     p.add_argument(
@@ -69,6 +79,12 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="ISO language hint for whisper (e.g. 'de'); skips auto-detect")
     p.add_argument("--notes", default=None,
                    help="free-text context forwarded to the LLM in every chunk")
+    p.add_argument("-o", "--output", type=Path, default=None,
+                   help="explicit output path (single-input only); relative or absolute")
+    p.add_argument("--frame-width", type=int, default=None,
+                   help="downscale frames to fit within this width (default 256)")
+    p.add_argument("--frame-height", type=int, default=None,
+                   help="downscale frames to fit within this height (default 144)")
 
     llm = p.add_argument_group("LLM")
     llm.add_argument("--llm", dest="llm_provider", default=None,
@@ -100,13 +116,16 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.window is not None: cfg = replace(cfg, window=args.window)
     if args.overlap is not None: cfg = replace(cfg, overlap=args.overlap)
     if args.overwrite: cfg = replace(cfg, overwrite=True)
-    if args.resume: cfg = replace(cfg, resume=True)
+    if args.no_resume: cfg = replace(cfg, resume=False)
     if args.keep_scratch: cfg = replace(cfg, keep_scratch=True)
     if args.jobs is not None: cfg = replace(cfg, jobs=args.jobs)
     if args.default_speaker: cfg = replace(cfg, default_speaker=args.default_speaker)
     if args.prompt: cfg = replace(cfg, prompt_path=args.prompt)
     if args.audio_language: cfg = replace(cfg, audio_language=args.audio_language)
     if args.notes: cfg = replace(cfg, notes=args.notes)
+    if args.output: cfg = replace(cfg, output_override=args.output.expanduser())
+    if args.frame_width is not None: cfg = replace(cfg, frame_width=args.frame_width)
+    if args.frame_height is not None: cfg = replace(cfg, frame_height=args.frame_height)
     if args.whisper_model: cfg = replace(cfg, whisper_model=args.whisper_model)
     if args.whisper_device: cfg = replace(cfg, whisper_device=args.whisper_device)
 

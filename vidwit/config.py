@@ -26,7 +26,7 @@ class Config:
     window: float = 10.0
     overlap: float = 1.0
     overwrite: bool = False
-    resume: bool = False
+    resume: bool = True  # reuse cached transcript/frames/chunks from scratch dir
     keep_scratch: bool = False
     jobs: int = field(default_factory=lambda: max(1, os.cpu_count() or 1))
     paths_home: Path | None = None  # final .md output dir override
@@ -38,6 +38,9 @@ class Config:
     whisper_device: str = "auto"  # "auto" | "cpu" | "cuda"
     audio_language: str | None = None  # ISO code, e.g. "de"; forces whisper language
     notes: str | None = None           # free-text forwarded to LLM capture metadata
+    output_override: Path | None = None  # explicit -o/--output path; single-input only
+    frame_width: int = 256             # downscale frames to fit within W x H (aspect preserved)
+    frame_height: int = 144
     llm: LLMConfig = field(default_factory=LLMConfig)
 
 
@@ -79,6 +82,8 @@ def from_file(path: Path, base: Config | None = None) -> Config:
         jobs=int(defaults.get("jobs", cfg.jobs)),
         default_speaker=defaults.get("default_speaker", cfg.default_speaker),
         prompt_path=Path(defaults["prompt"]).expanduser() if "prompt" in defaults else cfg.prompt_path,
+        frame_width=int(defaults.get("frame_width", cfg.frame_width)),
+        frame_height=int(defaults.get("frame_height", cfg.frame_height)),
     )
 
     whisper = data.get("whisper", {}) or {}

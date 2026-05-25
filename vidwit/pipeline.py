@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from pathlib import Path
 
 from . import ffmpeg_io, llm, scratch, transcribe
@@ -49,9 +50,9 @@ def run_one(video: Path, cfg: Config) -> Path:
     log.info("video: %s  duration=%.2fs  %dx%d  audio=%s",
              video.name, info.duration_s, info.width, info.height, info.has_audio)
 
-    out_path = scratch.output_path(video, cfg.paths_home)
-    if out_path.exists() and not cfg.overwrite and not cfg.resume:
-        raise FileExistsError(f"{out_path} exists (use --overwrite or --resume)")
+    out_path = scratch.output_path(video, cfg.paths_home, cfg.output_override)
+    if out_path.exists() and not cfg.overwrite:
+        raise FileExistsError(f"{out_path} exists (use --overwrite)")
 
     layout = scratch.scratch_for(video, cfg.paths_temp)
     layout.ensure()
@@ -85,17 +86,35 @@ def run_one(video: Path, cfg: Config) -> Path:
     tail: list[str] = []
     rolling_summary = ""
 
+    total = len(plan)
+    run_start = time.monotonic()
+    completed_this_run = 0
     for w in plan:
         chunk_path = layout.chunks_dir / f"{w.label}.md"
         if chunk_path.exists() and cfg.resume:
-            log.info("resume: skip %s", chunk_path.name)
+            log.info("resume: skip chunk %d/%d (%s)", w.index + 1, total, chunk_path.name)
             tail = _push_tail(tail, chunk_path.read_text(encoding="utf-8"))
             continue
+        t0 = time.monotonic()
+        log.info(
+            "chunk %d/%d [%s – %s) start",
+            w.index + 1, total, _fmt(w.start), _fmt(w.end),
+        )
         body = _process_window(
             w, frames, tx, cfg, provider, system_prompt, tail, rolling_summary, meta,
         )
         chunk_path.write_text(body, encoding="utf-8")
         tail = _push_tail(tail, body)
+        completed_this_run += 1
+        dt = time.monotonic() - t0
+        elapsed = time.monotonic() - run_start
+        avg = elapsed / completed_this_run
+        remaining = total - (w.index + 1)
+        eta_s = avg * remaining
+        log.info(
+            "chunk %d/%d done in %.1fs (avg %.1fs/chunk, ETA %s for %d more)",
+            w.index + 1, total, dt, avg, _fmt_eta(eta_s), remaining,
+        )
 
     # 4. Assemble + atomic publish via .part.
     final_md = assemble(layout.chunks_dir, video.name)
@@ -139,7 +158,11 @@ def _ensure_frames(video: Path, layout: scratch.ScratchLayout, cfg: Config) -> l
         log.info("resume: %d existing frames", len(existing))
         return existing
     log.info("extract frames @ %g fps", cfg.fps)
-    return ffmpeg_io.extract_frames(video, layout.frames_dir, fps=cfg.fps, threads=cfg.jobs)
+    return ffmpeg_io.extract_frames(
+        video, layout.frames_dir,
+        fps=cfg.fps, threads=cfg.jobs,
+        max_width=cfg.frame_width, max_height=cfg.frame_height,
+    )
 
 
 def _process_window(
@@ -191,6 +214,17 @@ def _read_prompt(cfg: Config) -> str:
     if cfg.prompt_path and cfg.prompt_path.exists():
         return cfg.prompt_path.read_text(encoding="utf-8")
     return _DEFAULT_SYSTEM_PROMPT
+
+
+def _fmt_eta(seconds: float) -> str:
+    s = int(round(seconds))
+    h, rem = divmod(s, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}h{m:02d}m{s:02d}s"
+    if m:
+        return f"{m}m{s:02d}s"
+    return f"{s}s"
 
 
 def _fmt(t: float) -> str:

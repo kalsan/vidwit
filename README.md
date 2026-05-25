@@ -123,8 +123,8 @@ The most commonly used command-line flags are:
 --fps FLOAT          frame sampling rate (default 1.0)
 --window FLOAT       window length in seconds (default 10.0)
 --overlap FLOAT      window overlap in seconds (default 1.0)
---overwrite          replace an existing .md file
---resume             resume a partial run from the scratch directory
+--overwrite          replace an existing .md output file
+--no-resume          force re-run; ignore cached transcript/frames/chunks in scratch
 --keep-scratch       keep the scratch directory after a successful run
 --jobs N             threads for ffmpeg and whisper (default: nproc)
 --paths home:DIR     write the final .md elsewhere (yt-dlp-style override)
@@ -133,6 +133,9 @@ The most commonly used command-line flags are:
 --prompt FILE        use a custom system prompt
 --audio-language CODE   ISO language hint for whisper (e.g. "de"); skips auto-detect
 --notes "TEXT"       free-text context forwarded to the LLM in every chunk
+-o, --output PATH    explicit output file path (single-input only); relative or absolute
+--frame-width N      downscale frames to fit within this width (default 256)
+--frame-height N     downscale frames to fit within this height (default 144)
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
 --base-url URL       OpenAI-compatible endpoint URL
@@ -217,12 +220,26 @@ Two flags help with these situations and can also be set under the
 ### Resumability
 
 Intermediate per-window outputs are stored under
-`<video-dir>/.vidwit-tmp/<video-hash>/chunks/NNNN.md`. The final
-output is first written as `<video>.md.part` and then atomically
-renamed to `<video>.md`. If the run crashes, `--resume` will skip
-chunks that are already on disk and continue from where it left off.
+`<video-dir>/.vidwit-tmp/<video-hash>/chunks/NNNN.md`. The whisper
+transcript and the extracted frames are cached in the same scratch
+directory. The final output is first written as `<video>.md.part`
+and then atomically renamed to `<video>.md`.
+
+**Resume is on by default.** If a run crashes, re-running the same
+command picks up where it left off — cached transcript, frames, and
+finished chunks are reused. To force a clean re-run from scratch, pass
+`--no-resume`.
+
 Scratch directories are cleaned up on success unless `--keep-scratch`
 is passed.
+
+Caveats:
+
+- The scratch directory is keyed by video hash alone, not by model or
+  by sampling settings. If you change `--fps`, `--window`,
+  `--frame-width`, `--audio-language`, or the LLM model between runs,
+  cached chunks and frames are no longer valid. Pass `--no-resume`
+  for that run, or wipe the scratch directory first.
 
 ### Scratch and output paths
 

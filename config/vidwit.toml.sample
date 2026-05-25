@@ -35,6 +35,11 @@ overlap = 1.0
 # default_speaker = "Narrator"
 # prompt = "/path/to/custom_prompt.md"
 # jobs = 8
+# Downscale frames to fit within this box (preserves aspect ratio, no padding).
+# Default matches lions.mkv (256x144). Raise for OCR-heavy material; lower
+# to cut LLM token cost.
+# frame_width = 256
+# frame_height = 144
 
 [video]
 # Optional per-corpus hints. CLI flags of the same name override these.

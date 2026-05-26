@@ -4,12 +4,40 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vidwit"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Multimodal video witness — local CLI that turns a video into an exhaustive markdown record."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "LGPL-2.1-or-later"
+license-files = ["LICENSE"]
 authors = [{ name = "Sandro Kalbermatter", email = "sandro@storabble.com" }]
+keywords = [
+    "video",
+    "transcription",
+    "whisper",
+    "llm",
+    "multimodal",
+    "markdown",
+    "accessibility",
+    "ffmpeg",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 # Runtime also requires `ffmpeg` + `ffprobe` on PATH.
 # LLM calls use stdlib urllib (no SDK deps).
 dependencies = [
@@ -20,13 +48,31 @@ dependencies = [
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+    "build>=1.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kalsan/vidwit"
+Repository = "https://github.com/kalsan/vidwit"
+Issues = "https://github.com/kalsan/vidwit/issues"
+Changelog = "https://github.com/kalsan/vidwit/releases"
 
 [project.scripts]
 vidwit = "vidwit.cli:main"
 
+[tool.hatch.version]
+path = "vidwit/__init__.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["vidwit"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "vidwit",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
 
 [tool.ruff]
 line-length = 100

@@ -55,25 +55,40 @@ visible from 04:18. Skip 04:17 – 04:21 to avoid the blood.
 ## Installation
 
 vidwit requires Python 3.11 or newer, along with `ffmpeg` and
-`ffprobe` on the system `PATH`. Once those prerequisites are in place,
-installation is a standard editable install:
+`ffprobe` on the system `PATH`.
+
+### From PyPI (recommended)
 
 ```bash
-git clone <repo-url> vidwit
-cd vidwit
 python3 -m venv .venv
-.venv/bin/pip install -e .
+.venv/bin/pip install vidwit
 ```
 
-This pulls `faster-whisper`, `ctranslate2`, and a few small supporting
-libraries. PyTorch is not required, because `faster-whisper` runs
-inference through `ctranslate2`. The Anthropic and OpenAI Python SDKs
-are also not required, because vidwit uses the standard library's
-`urllib` to call the HTTP endpoints directly.
+Or, with [pipx](https://pipx.pypa.io/) for an isolated user install:
 
-After the editable install, the `vidwit` entry point lives inside the
-virtual environment at `.venv/bin/vidwit`. You can invoke it in three
-equivalent ways:
+```bash
+pipx install vidwit
+```
+
+### From source (development)
+
+```bash
+git clone https://github.com/kalsan/vidwit.git
+cd vidwit
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+```
+
+vidwit pulls `faster-whisper`, `ctranslate2`, and a few small
+supporting libraries. PyTorch is **not** required, because
+`faster-whisper` runs inference through `ctranslate2`. The Anthropic
+and OpenAI Python SDKs are also not required, because vidwit uses the
+standard library's `urllib` to call the HTTP endpoints directly.
+
+### Invocation forms
+
+After installation, the `vidwit` entry point lives at `.venv/bin/vidwit`
+(or wherever pipx put it). You can invoke it in three equivalent ways:
 
 ```bash
 .venv/bin/vidwit path/to/video.mp4       # explicit, no shell setup needed
@@ -93,12 +108,24 @@ or the configuration file.
 
 ## Configuration
 
-Copy the sample configuration file and paste in your LLM API key:
+Drop a starter `vidwit.toml` into the current directory and paste in
+your LLM API key:
 
 ```bash
-cp config/vidwit.toml.sample vidwit.toml
+vidwit init                # writes ./vidwit.toml
 $EDITOR vidwit.toml
 ```
+
+Or write it to `~/.config/vidwit/vidwit.toml` instead, so it applies
+everywhere:
+
+```bash
+vidwit init --user
+```
+
+Pass `--prompt` to also drop a customisable system prompt
+(`vidwit_prompt.md`) alongside the config. Pass `--force` to overwrite
+existing files.
 
 vidwit searches for its configuration file at `./vidwit.toml`, then at
 `~/.config/vidwit/vidwit.toml`, or at an explicit path passed via
@@ -115,8 +142,10 @@ Four LLM providers are supported out of the box:
 | `lmstudio`  | Any OpenAI-compatible endpoint, such as LM Studio or vLLM.      |
 | `dummy`     | A no-network placeholder useful for offline testing; it emits stub chunks instead of calling a real model. |
 
-The real `vidwit.toml` file is excluded from version control via
-`.gitignore`; only the `.sample` is committed.
+The starter templates ship inside the package at
+`vidwit/templates/`; `vidwit init` copies them out for you. A populated
+`./vidwit.toml` contains your API key and is excluded from version
+control via `.gitignore`.
 
 ## Usage
 
@@ -284,6 +313,7 @@ vidwit/
     __init__.py
     __main__.py             # `python -m vidwit`
     cli.py                  # argument parsing, input expansion, per-file loop
+    init_cmd.py             # `vidwit init` — copies starter config out of templates/
     config.py               # defaults + environment variables + TOML file merge
     pipeline.py             # per-video orchestration
     ffmpeg_io.py            # probe, audio extraction, frame extraction
@@ -292,9 +322,9 @@ vidwit/
     llm.py                  # Provider protocol + Anthropic + OpenAI-compatible + dummy
     assembler.py            # chunk merge, table of contents, content warnings
     scratch.py              # paths, hashing, resume support
-  config/
-    vidwit.toml.sample
-    vidwit_prompt.md.sample
+    templates/              # bundled starter files, dropped by `vidwit init`
+      vidwit.toml
+      vidwit_prompt.md
 ```
 
 ## Output format conventions

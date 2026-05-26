@@ -7,10 +7,14 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from . import __version__, config as cfg_mod, pipeline
+from . import __version__, config as cfg_mod, init_cmd, pipeline
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw = sys.argv[1:] if argv is None else argv
+    if raw and raw[0] == "init":
+        return init_cmd.run(raw[1:])
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -52,6 +56,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="vidwit",
         description="Multimodal video witness — emit exhaustive markdown next to each video.",
+        epilog="Run `vidwit init` to drop a starter vidwit.toml into the current "
+               "directory (or `vidwit init --user` for ~/.config/vidwit/).",
     )
     p.add_argument("inputs", nargs="+", help="video file(s) or directory(ies)")
     p.add_argument("--config", type=Path, default=None,

@@ -37,6 +37,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if cfg.transcript_path is not None and len(inputs) > 1:
+        print(
+            f"vidwit: --transcript works only with a single input video "
+            f"(got {len(inputs)}); one transcript cannot describe a batch.",
+            file=sys.stderr,
+        )
+        return 2
 
     rc = 0
     for v in inputs:
@@ -118,6 +125,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--whisper-model", default=None,
                    help="whisper model name (tiny, base, small, medium, large-v3)")
     p.add_argument("--whisper-device", default=None, choices=["auto", "cpu", "cuda"])
+    p.add_argument("--transcript", type=Path, default=None,
+                   help="use this pre-computed transcript JSON instead of running "
+                        "whisper. Accepts vidwit-native ({words:[...]}) or "
+                        "faster-whisper ({segments:[...]}) shape. Single-input only.")
 
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("--version", action="version", version=f"vidwit {__version__}")
@@ -151,6 +162,7 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.max_tokens is not None: cfg = replace(cfg, max_tokens=args.max_tokens)
     if args.whisper_model: cfg = replace(cfg, whisper_model=args.whisper_model)
     if args.whisper_device: cfg = replace(cfg, whisper_device=args.whisper_device)
+    if args.transcript: cfg = replace(cfg, transcript_path=args.transcript.expanduser())
 
     if args.ext:
         exts = tuple({*cfg.video_exts, *(_normalise_ext(e) for e in args.ext)})

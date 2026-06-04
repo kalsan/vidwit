@@ -38,6 +38,7 @@ class Config:
     prompt_path: Path | None = None
     whisper_model: str = "small"
     whisper_device: str = "auto"  # "auto" | "cpu" | "cuda"
+    transcript_path: Path | None = None  # external transcript JSON; skips whisper
     audio_language: str | None = None  # ISO code, e.g. "de"; forces whisper language
     notes: str | None = None           # free-text forwarded to LLM capture metadata
     output_override: Path | None = None  # explicit -o/--output path; single-input only

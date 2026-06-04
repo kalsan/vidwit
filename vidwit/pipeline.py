@@ -157,6 +157,16 @@ def _ensure_transcript(video: Path, layout: scratch.ScratchLayout, cfg: Config) 
     if cfg.resume and layout.transcript_json.exists():
         log.info("resume: load transcript")
         return transcribe.Transcript.from_json(layout.transcript_json.read_text(encoding="utf-8"))
+    if cfg.transcript_path is not None:
+        log.info("load external transcript: %s (skipping whisper)", cfg.transcript_path)
+        tx = transcribe.load_external(
+            cfg.transcript_path,
+            default_speaker=cfg.default_speaker,
+            language=cfg.audio_language,
+        )
+        log.info("external transcript: %d words, language=%s", len(tx.words), tx.language)
+        layout.transcript_json.write_text(tx.to_json(), encoding="utf-8")
+        return tx
     if not layout.audio_wav.exists():
         log.info("extract audio → %s", layout.audio_wav.name)
         ffmpeg_io.extract_audio(video, layout.audio_wav, threads=cfg.jobs)

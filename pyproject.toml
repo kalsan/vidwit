@@ -70,6 +70,7 @@ packages = ["vidwit"]
 include = [
     "vidwit",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "pyproject.toml",
 ]

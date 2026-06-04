@@ -190,6 +190,9 @@ The most commonly used command-line flags are:
                      repeatable. Example: --extra-body
                      'chat_template_kwargs={"enable_thinking":false}'
 --whisper-model NAME tiny / base / small / medium / large-v3
+--transcript FILE    use a pre-computed transcript JSON instead of running
+                     whisper; accepts vidwit-native ({words:[...]}) or
+                     faster-whisper ({segments:[...]}) shape (single-input only)
 ```
 
 ## How it works

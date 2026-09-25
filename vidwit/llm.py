@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import base64
+import http.client
 import json
+import logging
 import mimetypes
+import random
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -169,18 +173,57 @@ def _meta_block(m: CaptureMeta, req: ChunkRequest) -> str:
     return "\n".join(lines)
 
 
+# Transient failures worth retrying: rate limits, overload (Anthropic 529),
+# gateway errors, and dropped connections. Timeouts are not retried: they
+# usually mean a slow model, and retrying multiplies the wait.
+_RETRY_STATUS = {408, 409, 429, 500, 502, 503, 504, 529}
+_RETRY_ATTEMPTS = 6        # 1 try + 5 retries
+_RETRY_BASE_DELAY = 2.0    # seconds; doubles each retry, plus jitter
+_RETRY_MAX_DELAY = 60.0
+
+log = logging.getLogger("vidwit.llm")
+
+
 def _post_json(url: str, payload: dict, headers: dict, timeout: float = 600.0) -> dict:
     body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=body, method="POST")
-    for k, v in headers.items():
-        req.add_header(k, v)
-    req.add_header("Content-Type", "application/json")
+    for attempt in range(1, _RETRY_ATTEMPTS + 1):
+        req = urllib.request.Request(url, data=body, method="POST")
+        for k, v in headers.items():
+            req.add_header(k, v)
+        req.add_header("Content-Type", "application/json")
+        retry_after: float | None = None
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", errors="replace")
+            if e.code not in _RETRY_STATUS or attempt == _RETRY_ATTEMPTS:
+                raise RuntimeError(f"HTTP {e.code} from {url}: {detail}") from e
+            reason = f"HTTP {e.code}"
+            retry_after = _parse_retry_after(e.headers.get("retry-after"))
+        except (urllib.error.URLError, ConnectionError, http.client.HTTPException) as e:
+            if _is_timeout(e) or attempt == _RETRY_ATTEMPTS:
+                raise
+            reason = str(getattr(e, "reason", e)) or type(e).__name__
+        delay = retry_after if retry_after is not None else min(
+            _RETRY_BASE_DELAY * 2 ** (attempt - 1), _RETRY_MAX_DELAY,
+        ) + random.uniform(0, 1)
+        log.warning("LLM request failed (%s); retry %d/%d in %.1fs",
+                    reason, attempt, _RETRY_ATTEMPTS - 1, delay)
+        time.sleep(delay)
+    raise AssertionError("unreachable")
+
+
+def _is_timeout(e: BaseException) -> bool:
+    reason = getattr(e, "reason", e)
+    return isinstance(reason, TimeoutError) or isinstance(e, TimeoutError)
+
+
+def _parse_retry_after(value: str | None) -> float | None:
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {e.code} from {url}: {detail}") from e
+        return min(float(value), _RETRY_MAX_DELAY) if value else None
+    except ValueError:
+        return None  # HTTP-date form; fall back to exponential backoff
 
 
 class DummyProvider:

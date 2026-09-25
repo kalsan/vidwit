@@ -91,7 +91,7 @@ def _b64_image(path: Path) -> tuple[str, str]:
 
 
 def _frame_label(t: float) -> str:
-    return f"frame at {t:.3f} s"
+    return f"frame at {_fmt(t)}"
 
 
 def _user_text(req: ChunkRequest) -> str:
@@ -126,7 +126,7 @@ def _meta_block(m: CaptureMeta, req: ChunkRequest) -> str:
             "previous attached frame; a gap between timestamps means nothing "
             "visible changed.",
             f"- frames attached: {len(req.frames)} (in time order, each preceded by "
-            "a `frame at <t> s` label)",
+            "a `frame at MM:SS.mmm` label)",
             "- a gap between frames is a still picture, not missing footage: describe "
             "the window as you would from continuous footage and do not invent "
             "activity during the gap",
@@ -135,7 +135,7 @@ def _meta_block(m: CaptureMeta, req: ChunkRequest) -> str:
             if req.frame_times[0] < req.window_start_s:
                 lines.append(
                     f"- the first frame predates this window: it shows the picture "
-                    f"as it has been since {req.frame_times[0]:.3f} s, still "
+                    f"as it has been since {_fmt(req.frame_times[0])}, still "
                     f"unchanged at the window start"
                 )
     else:

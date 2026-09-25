@@ -10,6 +10,7 @@ class ScratchLayout:
     root: Path           # <scratch_base>/<hash>/
     audio_wav: Path
     frames_dir: Path
+    frames_json: Path    # extraction settings the cached frames were made with
     chunks_dir: Path
     transcript_json: Path
     state_json: Path
@@ -42,6 +43,7 @@ def scratch_for(video: Path, temp_root: Path | None) -> ScratchLayout:
         root=root,
         audio_wav=root / "audio.wav",
         frames_dir=root / "frames",
+        frames_json=root / "frames.json",
         chunks_dir=root / "chunks",
         transcript_json=root / "transcript.json",
         state_json=root / "state.json",

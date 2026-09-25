@@ -100,6 +100,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--frame-height", type=int, default=None,
                    help="downscale frames to fit within this height (default 144)")
     p.add_argument(
+        "--skip-identical-frames", action="store_true",
+        help="keep a frame only if it differs from the last kept one; --fps "
+             "becomes the maximum rate (useful for screen recordings)",
+    )
+    p.add_argument(
+        "--mpdecimate", default=None, metavar="OPTS",
+        help="ffmpeg mpdecimate options deciding what counts as identical for "
+             "--skip-identical-frames, e.g. 'hi=64*24:lo=64*10:frac=0.33' "
+             "(default: ffmpeg's defaults)",
+    )
+    p.add_argument(
         "--max-tokens", type=int, default=None,
         help="cumulative LLM token cap per video; abort and assemble what is "
              "done when exceeded. None = no cap.",
@@ -159,10 +170,18 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.output: cfg = replace(cfg, output_override=args.output.expanduser())
     if args.frame_width is not None: cfg = replace(cfg, frame_width=args.frame_width)
     if args.frame_height is not None: cfg = replace(cfg, frame_height=args.frame_height)
+    if args.skip_identical_frames: cfg = replace(cfg, skip_identical_frames=True)
+    if args.mpdecimate is not None: cfg = replace(cfg, mpdecimate=args.mpdecimate)
     if args.max_tokens is not None: cfg = replace(cfg, max_tokens=args.max_tokens)
     if args.whisper_model: cfg = replace(cfg, whisper_model=args.whisper_model)
     if args.whisper_device: cfg = replace(cfg, whisper_device=args.whisper_device)
     if args.transcript: cfg = replace(cfg, transcript_path=args.transcript.expanduser())
+
+    if any(c in cfg.mpdecimate for c in ",;[]"):
+        raise SystemExit(
+            f"vidwit: mpdecimate expects filter options like 'hi=768:frac=0.33', "
+            f"not a filter chain: {cfg.mpdecimate!r}"
+        )
 
     if args.ext:
         exts = tuple({*cfg.video_exts, *(_normalise_ext(e) for e in args.ext)})

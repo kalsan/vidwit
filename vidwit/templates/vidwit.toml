@@ -48,6 +48,11 @@ overlap = 1.0
 # to cut LLM token cost.
 # frame_width = 256
 # frame_height = 144
+# Keep a frame only if it changed since the last kept one; fps becomes a
+# ceiling. Great for screen recordings. mpdecimate tunes what counts as
+# identical (ffmpeg mpdecimate filter options; empty = ffmpeg defaults).
+# skip_identical_frames = true
+# mpdecimate = "hi=64*24:lo=64*10:frac=0.33"
 
 [video]
 # Optional per-corpus hints. CLI flags of the same name override these.

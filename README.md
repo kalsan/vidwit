@@ -181,6 +181,9 @@ The most commonly used command-line flags are:
 -o, --output PATH    explicit output file path (single-input only); relative or absolute
 --frame-width N      downscale frames to fit within this width (default 256)
 --frame-height N     downscale frames to fit within this height (default 144)
+--skip-identical-frames  keep a frame only if it changed since the last kept one;
+                     --fps becomes the maximum rate (see below)
+--mpdecimate OPTS    ffmpeg mpdecimate options for --skip-identical-frames
 --max-tokens N       cumulative LLM token cap per video; abort + assemble what is done
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
@@ -243,6 +246,31 @@ its description. In particular, visual events shorter than the frame
 spacing may be missed in the supplied frames, and the model is
 expected to infer those from the transcript instead.
 
+### Skipping identical frames
+
+By default frames are sampled at a fixed `--fps`. Screen recordings are
+mostly still: the user reads, thinks or talks while nothing on screen
+moves, and every one of those identical frames costs LLM tokens.
+`--skip-identical-frames` (or `skip_identical_frames = true` under
+`[defaults]`) keeps a frame only if it differs from the last kept frame,
+so `--fps` becomes a ceiling that is reached only during continuous
+movement. With `--fps 4`, 10 s of work followed by a 5 s pause and 5 s
+more work yields about 40 + 1 + 20 frames instead of 80.
+
+Detection uses ffmpeg's
+[`mpdecimate`](https://ffmpeg.org/ffmpeg-filters.html#mpdecimate) filter
+and runs on the downscaled frames (`--frame-width` × `--frame-height`),
+so a change counts only if it is visible at the size the LLM receives.
+At the default 256×144 this also filters out noise such as a ticking
+status-bar clock or a blinking cursor. At larger frame sizes such noise
+can keep every frame; pass stricter options via `--mpdecimate`, e.g.
+`--mpdecimate 'hi=64*24:lo=64*10:frac=0.33'`.
+
+The capture metadata then tells the model that sampling is
+change-driven and lists each frame's timestamp. A window with no change
+at its start also receives the last kept frame before it, so the model
+always sees what is on screen.
+
 ### Unreliable transcripts and burned-in subtitles
 
 Whisper is excellent for the languages it was trained on but can
@@ -289,10 +317,11 @@ is passed.
 Caveats:
 
 - The scratch directory is keyed by video hash alone, not by model or
-  by sampling settings. If you change `--fps`, `--window`,
+  by sampling settings. Cached frames are re-extracted automatically
+  when `--fps`, the frame size or the identical-frame settings change,
+  but cached chunks are not: if you change `--fps`, `--window`,
   `--frame-width`, `--audio-language`, or the LLM model between runs,
-  cached chunks and frames are no longer valid. Pass `--no-resume`
-  for that run, or wipe the scratch directory first.
+  pass `--no-resume` for that run, or wipe the scratch directory first.
 
 ### Scratch and output paths
 

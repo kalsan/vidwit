@@ -28,6 +28,7 @@ class CaptureMeta:
     detected_language_probability: float | None = None
     audio_language_hint: str | None = None      # user-supplied --audio-language
     notes: str | None = None                    # free-text from --notes
+    skip_identical: bool = False                # fps is a ceiling; unchanged frames dropped
 
 
 @dataclass(slots=True, frozen=True)
@@ -40,6 +41,7 @@ class ChunkRequest:
     window_start_s: float
     window_end_s: float
     meta: CaptureMeta | None = None
+    frame_times: list[float] | None = None  # seconds per frame; set when spacing is irregular
 
 
 @dataclass(slots=True, frozen=True)
@@ -88,10 +90,14 @@ def _b64_image(path: Path) -> tuple[str, str]:
     return mime, data
 
 
+def _frame_label(t: float) -> str:
+    return f"frame at {t:.3f} s"
+
+
 def _user_text(req: ChunkRequest) -> str:
     parts: list[str] = [f"Window: [{req.window_start_s:.3f}s – {req.window_end_s:.3f}s)"]
     if req.meta is not None:
-        parts.append(_meta_block(req.meta, len(req.frames)))
+        parts.append(_meta_block(req.meta, req))
     if req.rolling_summary:
         parts.append("\n# Story so far\n" + req.rolling_summary)
     if req.tail_chunks:
@@ -110,14 +116,34 @@ def _user_text(req: ChunkRequest) -> str:
     return "\n".join(parts)
 
 
-def _meta_block(m: CaptureMeta, n_frames: int) -> str:
+def _meta_block(m: CaptureMeta, req: ChunkRequest) -> str:
     spacing = (1.0 / m.fps) if m.fps else float("nan")
-    lines = [
-        "\n# Capture metadata",
-        f"- frame sampling: {m.fps:g} fps (≈ {spacing:.3f} s between attached frames)",
-        f"- frames attached: {n_frames} (sequential, in time order)",
-        f"- window length: {m.window_s:g} s, overlap with neighbours: {m.overlap_s:g} s",
-    ]
+    lines = ["\n# Capture metadata"]
+    if m.skip_identical:
+        lines += [
+            f"- frame sampling: change-driven, at most {m.fps:g} fps (≥ {spacing:.3f} s "
+            "apart). A frame is attached only when the picture changed since the "
+            "previous attached frame; a gap between timestamps means nothing "
+            "visible changed.",
+            f"- frames attached: {len(req.frames)} (in time order, each preceded by "
+            "a `frame at <t> s` label)",
+            "- a gap between frames is a still picture, not missing footage: describe "
+            "the window as you would from continuous footage and do not invent "
+            "activity during the gap",
+        ]
+        if req.frame_times:
+            if req.frame_times[0] < req.window_start_s:
+                lines.append(
+                    f"- the first frame predates this window: it shows the picture "
+                    f"as it has been since {req.frame_times[0]:.3f} s, still "
+                    f"unchanged at the window start"
+                )
+    else:
+        lines += [
+            f"- frame sampling: {m.fps:g} fps (≈ {spacing:.3f} s between attached frames)",
+            f"- frames attached: {len(req.frames)} (sequential, in time order)",
+        ]
+    lines.append(f"- window length: {m.window_s:g} s, overlap with neighbours: {m.overlap_s:g} s")
     if m.source_fps is not None:
         lines.append(f"- original video fps: {m.source_fps:g}")
     if m.width and m.height:
@@ -196,7 +222,9 @@ class AnthropicProvider:
 
     def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> tuple[str, Usage]:
         content: list[dict] = []
-        for f in req.frames:
+        for i, f in enumerate(req.frames):
+            if req.frame_times:
+                content.append({"type": "text", "text": _frame_label(req.frame_times[i])})
             mime, data = _b64_image(f)
             content.append({
                 "type": "image",
@@ -243,7 +271,9 @@ class OpenAICompatProvider:
 
     def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> tuple[str, Usage]:
         content: list[dict] = []
-        for f in req.frames:
+        for i, f in enumerate(req.frames):
+            if req.frame_times:
+                content.append({"type": "text", "text": _frame_label(req.frame_times[i])})
             mime, data = _b64_image(f)
             content.append({
                 "type": "image_url",

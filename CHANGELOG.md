@@ -5,6 +5,22 @@ All notable changes to vidwit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `--skip-identical-frames` flag (`skip_identical_frames` under `[defaults]`):
+  keep a frame only if it differs from the last kept one, so `--fps` becomes a
+  maximum rate reached only during continuous movement. Aimed at screen
+  recordings, where long still stretches otherwise cost tokens for identical
+  frames. Detection uses ffmpeg's `mpdecimate` on the downscaled frames;
+  `--mpdecimate OPTS` tunes it. The capture metadata then lists each frame's
+  timestamp, and a window without a change at its start also receives the last
+  kept frame before it.
+
+### Changed
+- Resume now re-extracts cached frames when fps, frame size or the
+  identical-frame settings differ from the cached run.
+
 ## [1.1.0] - 2026-06-04
 
 ### Added
@@ -40,5 +56,6 @@ First public release.
   `--audio-language`, `--notes`.
 - CI and packaging for publishing to PyPI.
 
+[Unreleased]: https://github.com/kalsan/vidwit/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/kalsan/vidwit/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kalsan/vidwit/releases/tag/v1.0.0

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import shutil
@@ -72,8 +73,8 @@ def run_one(video: Path, cfg: Config) -> Path:
     # 1. Audio + transcript.
     tx = _ensure_transcript(video, layout, cfg)
 
-    # 2. Frames at fps.
-    frames = _ensure_frames(video, layout, cfg)
+    # 2. Frames at fps (a ceiling with skip_identical_frames).
+    frames = _ensure_frames(video, layout, cfg, info.duration_s)
 
     # 3. Windowed loop.
     plan = windows(info.duration_s, cfg.window, cfg.overlap)
@@ -94,6 +95,7 @@ def run_one(video: Path, cfg: Config) -> Path:
         detected_language_probability=tx.language_probability,
         audio_language_hint=cfg.audio_language,
         notes=cfg.notes,
+        skip_identical=cfg.skip_identical_frames,
     )
     tail: list[str] = []
     rolling_summary = ""
@@ -186,17 +188,44 @@ def _ensure_transcript(video: Path, layout: scratch.ScratchLayout, cfg: Config) 
     return tx
 
 
-def _ensure_frames(video: Path, layout: scratch.ScratchLayout, cfg: Config) -> list[Path]:
+def _ensure_frames(
+    video: Path, layout: scratch.ScratchLayout, cfg: Config, duration_s: float,
+) -> list[Path]:
+    settings = {
+        "fps": cfg.fps,
+        "frame_width": cfg.frame_width,
+        "frame_height": cfg.frame_height,
+        "skip_identical_frames": cfg.skip_identical_frames,
+        "mpdecimate": cfg.mpdecimate if cfg.skip_identical_frames else "",
+    }
     existing = sorted(layout.frames_dir.glob("f_*.jpg"))
     if cfg.resume and existing:
-        log.info("resume: %d existing frames", len(existing))
-        return existing
-    log.info("extract frames @ %g fps", cfg.fps)
-    return ffmpeg_io.extract_frames(
+        cached = (
+            json.loads(layout.frames_json.read_text(encoding="utf-8"))
+            if layout.frames_json.exists() else None
+        )
+        if cached == settings:
+            log.info("resume: %d existing frames", len(existing))
+            return existing
+        log.info("resume: cached frames were extracted with other settings; re-extracting")
+    for f in existing:
+        f.unlink()
+    layout.frames_json.unlink(missing_ok=True)
+    if cfg.skip_identical_frames:
+        log.info("extract frames @ ≤ %g fps, skipping identical frames", cfg.fps)
+    else:
+        log.info("extract frames @ %g fps", cfg.fps)
+    frames = ffmpeg_io.extract_frames(
         video, layout.frames_dir,
         fps=cfg.fps, threads=cfg.jobs,
         max_width=cfg.frame_width, max_height=cfg.frame_height,
+        skip_identical=cfg.skip_identical_frames, mpdecimate=cfg.mpdecimate,
     )
+    if cfg.skip_identical_frames:
+        log.info("kept %d frames (fixed rate would extract ~%d)",
+                 len(frames), round(duration_s * cfg.fps))
+    layout.frames_json.write_text(json.dumps(settings), encoding="utf-8")
+    return frames
 
 
 def _process_window(
@@ -214,6 +243,15 @@ def _process_window(
     first = max(1, int(w.start * cfg.fps) + 1)
     last = max(first, int(w.end * cfg.fps))
     window_frames = [f for f in frames if first <= _frame_index(f) <= last]
+    frame_times = None
+    if cfg.skip_identical_frames:
+        # No frame at the window start means the picture is unchanged since
+        # the last kept frame before it; send that one as the starting view.
+        if not window_frames or _frame_index(window_frames[0]) > first:
+            before = [f for f in frames if _frame_index(f) < first]
+            if before:
+                window_frames.insert(0, before[-1])
+        frame_times = [(_frame_index(f) - 1) / cfg.fps for f in window_frames]
 
     words = tx.slice(w.start, w.end)
     transcript_lines = _aggregate_transcript(words)
@@ -227,6 +265,7 @@ def _process_window(
         window_start_s=w.start,
         window_end_s=w.end,
         meta=_meta,
+        frame_times=frame_times,
     )
     return provider.vision_chat(req, max_output_tokens=cfg.llm.max_output_tokens)
 

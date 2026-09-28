@@ -281,8 +281,17 @@ def _push_tail(tail: list[str], body: str, max_keep: int = 2) -> list[str]:
 
 def _read_prompt(cfg: Config) -> str:
     if cfg.prompt_path and cfg.prompt_path.exists():
-        return cfg.prompt_path.read_text(encoding="utf-8")
-    return _DEFAULT_SYSTEM_PROMPT
+        prompt = cfg.prompt_path.read_text(encoding="utf-8")
+    else:
+        prompt = _DEFAULT_SYSTEM_PROMPT
+    if cfg.output_language:
+        prompt += (
+            f"\nOutput language: write all descriptions, block titles and summaries "
+            f"in {cfg.output_language}. Keep quotes of speech and on-screen text "
+            f"verbatim in their original language, and keep the block header "
+            f"format and the tags ([FOOTAGE], [ANIM], ...) exactly as specified.\n"
+        )
+    return prompt
 
 
 _SENTENCE_TERMINATORS = (".", "?", "!", "…")

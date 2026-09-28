@@ -73,7 +73,7 @@ def build(cfg: LLMConfig) -> Provider:
         return AnthropicProvider(
             model=cfg.model or "claude-sonnet-4-6",
             api_key=cfg.api_key,
-            request_timeout=cfg.request_timeout,
+            request_timeout=cfg.request_timeout if cfg.request_timeout is not None else _HOSTED_TIMEOUT,
             extra_body=dict(cfg.extra_body),
         )
     if p in ("openai", "lmstudio", "openai-compat"):
@@ -81,7 +81,7 @@ def build(cfg: LLMConfig) -> Provider:
             model=cfg.model,
             base_url=cfg.base_url or "https://api.openai.com/v1",
             api_key=cfg.api_key or "lm-studio",
-            request_timeout=cfg.request_timeout,
+            request_timeout=cfg.request_timeout if cfg.request_timeout is not None else _LOCAL_TIMEOUT,
             extra_body=dict(cfg.extra_body),
         )
     raise ValueError(f"unknown llm provider: {cfg.provider}")
@@ -174,17 +174,27 @@ def _meta_block(m: CaptureMeta, req: ChunkRequest) -> str:
 
 
 # Transient failures worth retrying: rate limits, overload (Anthropic 529),
-# gateway errors, and dropped connections. Timeouts are not retried: they
-# usually mean a slow model, and retrying multiplies the wait.
+# gateway errors, and dropped connections. Timeouts are retried only where the
+# caller says so (hosted APIs, where a timeout means a hung connection); on a
+# local model a timeout usually means a slow model, and retrying multiplies the wait.
 _RETRY_STATUS = {408, 409, 429, 500, 502, 503, 504, 529}
 _RETRY_ATTEMPTS = 6        # 1 try + 5 retries
 _RETRY_BASE_DELAY = 2.0    # seconds; doubles each retry, plus jitter
 _RETRY_MAX_DELAY = 60.0
 
+# Default per-request timeouts when none is configured. A hosted API answers a
+# chunk in well under a minute, so 180 s catches hung connections early; local
+# models on modest hardware can legitimately take many minutes.
+_HOSTED_TIMEOUT = 180.0
+_LOCAL_TIMEOUT = 600.0
+
 log = logging.getLogger("vidwit.llm")
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: float = 600.0) -> dict:
+def _post_json(
+    url: str, payload: dict, headers: dict,
+    timeout: float = _LOCAL_TIMEOUT, retry_timeouts: bool = False,
+) -> dict:
     body = json.dumps(payload).encode("utf-8")
     for attempt in range(1, _RETRY_ATTEMPTS + 1):
         req = urllib.request.Request(url, data=body, method="POST")
@@ -201,10 +211,10 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float = 600.0) -
                 raise RuntimeError(f"HTTP {e.code} from {url}: {detail}") from e
             reason = f"HTTP {e.code}"
             retry_after = _parse_retry_after(e.headers.get("retry-after"))
-        except (urllib.error.URLError, ConnectionError, http.client.HTTPException) as e:
-            if _is_timeout(e) or attempt == _RETRY_ATTEMPTS:
+        except (urllib.error.URLError, ConnectionError, TimeoutError, http.client.HTTPException) as e:
+            if (_is_timeout(e) and not retry_timeouts) or attempt == _RETRY_ATTEMPTS:
                 raise
-            reason = str(getattr(e, "reason", e)) or type(e).__name__
+            reason = "timed out" if _is_timeout(e) else (str(getattr(e, "reason", e)) or type(e).__name__)
         delay = retry_after if retry_after is not None else min(
             _RETRY_BASE_DELAY * 2 ** (attempt - 1), _RETRY_MAX_DELAY,
         ) + random.uniform(0, 1)
@@ -285,7 +295,10 @@ class AnthropicProvider:
             "x-api-key": self.api_key,
             "anthropic-version": self.API_VERSION,
         }
-        data = _post_json(self.API_URL, payload, headers, timeout=self.request_timeout)
+        data = _post_json(
+            self.API_URL, payload, headers,
+            timeout=self.request_timeout, retry_timeouts=True,
+        )
         text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
         u = data.get("usage") or {}
         usage = Usage(

@@ -95,6 +95,9 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="free-text context forwarded to the LLM in every chunk")
     p.add_argument("-o", "--output", type=Path, default=None,
                    help="explicit output path (single-input only); relative or absolute")
+    p.add_argument("--output-language", default=None, metavar="LANG",
+                   help="write descriptions, titles and summaries in this language "
+                        "(e.g. German); quotes stay verbatim. Default: model's choice")
     p.add_argument("--frame-width", type=int, default=None,
                    help="downscale frames to fit within this width (default 256)")
     p.add_argument("--frame-height", type=int, default=None,
@@ -123,7 +126,8 @@ def _build_parser() -> argparse.ArgumentParser:
     llm.add_argument("--base-url", dest="llm_base_url", default=None,
                      help="OpenAI-compatible endpoint (e.g. http://localhost:1234/v1)")
     llm.add_argument("--timeout", dest="llm_timeout", type=float, default=None,
-                     help="HTTP timeout for LLM requests in seconds (default 600)")
+                     help="HTTP timeout for LLM requests in seconds (default: 180 for "
+                          "anthropic, where timeouts are retried; 600 for openai/lmstudio)")
     llm.add_argument(
         "--extra-body", dest="llm_extra_body", action="append", default=[],
         metavar="KEY=JSON",
@@ -168,6 +172,7 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.audio_language: cfg = replace(cfg, audio_language=args.audio_language)
     if args.notes: cfg = replace(cfg, notes=args.notes)
     if args.output: cfg = replace(cfg, output_override=args.output.expanduser())
+    if args.output_language: cfg = replace(cfg, output_language=args.output_language)
     if args.frame_width is not None: cfg = replace(cfg, frame_width=args.frame_width)
     if args.frame_height is not None: cfg = replace(cfg, frame_height=args.frame_height)
     if args.skip_identical_frames: cfg = replace(cfg, skip_identical_frames=True)

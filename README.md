@@ -178,6 +178,8 @@ The most commonly used command-line flags are:
 --prompt FILE        use a custom system prompt
 --audio-language CODE   ISO language hint for whisper (e.g. "de"); skips auto-detect
 --notes "TEXT"       free-text context forwarded to the LLM in every chunk
+--output-language L  write descriptions and titles in language L (e.g. German);
+                     quotes stay verbatim. Default: the model's choice
 -o, --output PATH    explicit output file path (single-input only); relative or absolute
 --frame-width N      downscale frames to fit within this width (default 256)
 --frame-height N     downscale frames to fit within this height (default 144)
@@ -188,7 +190,8 @@ The most commonly used command-line flags are:
 --llm PROVIDER       anthropic | openai | lmstudio | dummy
 --model NAME         model identifier
 --base-url URL       OpenAI-compatible endpoint URL
---timeout SECONDS    HTTP timeout for each LLM call (default 600)
+--timeout SECONDS    HTTP timeout for each LLM call (default 180 for anthropic,
+                     600 for openai/lmstudio)
 --extra-body K=JSON  extra field merged into the chat-completions payload;
                      repeatable. Example: --extra-body
                      'chat_template_kwargs={"enable_thinking":false}'

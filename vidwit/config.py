@@ -18,7 +18,7 @@ class LLMConfig:
     base_url: str | None = None
     api_key: str | None = None
     max_output_tokens: int = 2048
-    request_timeout: float = 600.0          # seconds; bumped for slow local models
+    request_timeout: float | None = None    # seconds; None = provider default (anthropic 180, local 600)
     extra_body: dict = field(default_factory=dict)  # merged into chat-completions payload
 
 
@@ -42,6 +42,7 @@ class Config:
     audio_language: str | None = None  # ISO code, e.g. "de"; forces whisper language
     notes: str | None = None           # free-text forwarded to LLM capture metadata
     output_override: Path | None = None  # explicit -o/--output path; single-input only
+    output_language: str | None = None # language for the written descriptions; quotes stay verbatim
     frame_width: int = 256             # downscale frames to fit within W x H (aspect preserved)
     frame_height: int = 144
     skip_identical_frames: bool = False  # drop frames near-identical to the last kept one; fps = ceiling
@@ -57,7 +58,8 @@ def from_env(base: Config | None = None) -> Config:
         cfg,
         whisper_model=env.get("VIDWIT_WHISPER_MODEL", cfg.whisper_model),
         whisper_device=env.get("VIDWIT_WHISPER_DEVICE", cfg.whisper_device),
-        llm=LLMConfig(
+        llm=replace(
+            cfg.llm,
             provider=env.get("VIDWIT_LLM_PROVIDER", cfg.llm.provider),
             model=env.get("VIDWIT_LLM_MODEL", cfg.llm.model),
             base_url=env.get("VIDWIT_LLM_BASE_URL", cfg.llm.base_url),
@@ -93,6 +95,7 @@ def from_file(path: Path, base: Config | None = None) -> Config:
         skip_identical_frames=bool(defaults.get("skip_identical_frames", cfg.skip_identical_frames)),
         mpdecimate=str(defaults.get("mpdecimate", cfg.mpdecimate)),
         max_tokens=defaults.get("max_tokens", cfg.max_tokens),
+        output_language=defaults.get("output_language", cfg.output_language),
     )
 
     whisper = data.get("whisper", {}) or {}
@@ -119,7 +122,10 @@ def from_file(path: Path, base: Config | None = None) -> Config:
             base_url=llm_data.get("base_url", cfg.llm.base_url),
             api_key=llm_data.get("api_key", cfg.llm.api_key),
             max_output_tokens=int(llm_data.get("max_output_tokens", cfg.llm.max_output_tokens)),
-            request_timeout=float(llm_data.get("request_timeout", cfg.llm.request_timeout)),
+            request_timeout=(
+                float(llm_data["request_timeout"]) if "request_timeout" in llm_data
+                else cfg.llm.request_timeout
+            ),
             extra_body=dict(eb) if isinstance(eb, dict) else {},
         ),
     )

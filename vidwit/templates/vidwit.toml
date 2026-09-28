@@ -52,6 +52,9 @@ overlap = 1.0
 # ceiling. Great for screen recordings. mpdecimate tunes what counts as
 # identical (ffmpeg mpdecimate filter options; empty = ffmpeg defaults).
 # skip_identical_frames = true
+# Language for the written descriptions and block titles; quotes of speech and
+# on-screen text stay verbatim. Unset = the model picks (often varies per run).
+# output_language = "German"
 # mpdecimate = "hi=64*24:lo=64*10:frac=0.33"
 
 [video]

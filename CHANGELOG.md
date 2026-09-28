@@ -5,6 +5,24 @@ All notable changes to vidwit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `--output-language LANG` (`output_language` under `[defaults]`): write all
+  descriptions, block titles and summaries in the given language, while quotes
+  of speech and on-screen text stay verbatim. Without it the model picks the
+  language, which can differ from one run to the next.
+
+### Changed
+- Anthropic requests now default to a 180 s timeout, and timeouts are retried
+  like dropped connections: on a hosted API a timeout means a hung connection,
+  not a slow model. OpenAI-compatible / LM Studio requests keep 600 s and still
+  fail on timeout. `--timeout` overrides both.
+
+### Fixed
+- `request_timeout` and `extra_body` set in `vidwit.toml` were silently reset
+  to their defaults when environment variables were applied.
+
 ## [1.2.1] - 2026-09-25
 
 ### Fixed
@@ -65,6 +83,7 @@ First public release.
   `--audio-language`, `--notes`.
 - CI and packaging for publishing to PyPI.
 
+[Unreleased]: https://github.com/kalsan/vidwit/compare/v1.2.1...HEAD
 [1.2.1]: https://github.com/kalsan/vidwit/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/kalsan/vidwit/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kalsan/vidwit/compare/v1.0.0...v1.1.0

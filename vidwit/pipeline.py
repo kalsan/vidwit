@@ -117,7 +117,10 @@ def run_one(video: Path, cfg: Config) -> Path:
             cached = chunk_path.read_text(encoding="utf-8")
             if _TRUNCATED_MARK not in cached:
                 log.info("resume: skip chunk %d/%d (%s)", w.index + 1, total, chunk_path.name)
-                tail = _push_tail(tail, cached)
+                fixed = _set_header_range(cached, w)
+                if fixed != cached:
+                    chunk_path.write_text(fixed, encoding="utf-8")
+                tail = _push_tail(tail, fixed)
                 continue
             log.info("resume: redo truncated chunk %d/%d (%s)", w.index + 1, total, chunk_path.name)
         t0 = time.monotonic()
@@ -128,7 +131,7 @@ def run_one(video: Path, cfg: Config) -> Path:
         body, usage = _process_window(
             w, frames, tx, cfg, provider, system_prompt, tail, rolling_summary, meta,
         )
-        body = _sanitise_chunk(body)
+        body = _set_header_range(_sanitise_chunk(body), w)
         if usage.truncated:
             log.warning("chunk %d/%d still cut off at the output limit; kept with a warning, "
                         "redone on the next resume", w.index + 1, total)
@@ -425,6 +428,33 @@ def _sanitise_chunk(body: str) -> str:
     while len(cleaned) > 1 and _is_trailing_junk(cleaned[-1]):
         cleaned.pop()
     return "\n".join(cleaned).rstrip() + "\n"
+
+
+# Time range the model wrote at the start of its block header, e.g.
+# `[05:01.000 – 05:11.000)`, also without brackets or with `-` / `]`.
+_HEADER_RANGE_RE = re.compile(
+    r"^\[?\s*\d+:\d+(?:\.\d+)?\s*[–—-]+\s*\d+:\d+(?:\.\d+)?\s*[\)\]]?\s*"
+)
+
+
+def _set_header_range(body: str, w: Window) -> str:
+    """Write the planned window range into the block header.
+
+    The model's range is unreliable: over still stretches with
+    skip_identical_frames it tends to copy the timestamp of the last kept
+    frame, so several windows end up with the same range and the TOC loses
+    order. Only the model's title and tag are kept. A body without a header
+    gets one, so every window appears in the TOC.
+    """
+    rng = f"### [{_fmt(w.start)} – {_fmt(w.end)})"
+    lines = body.splitlines()
+    if not lines or not lines[0].startswith("### "):
+        return f"{rng}\n{body}" if body.strip() else rng + "\n"
+    rest = _HEADER_RANGE_RE.sub("", lines[0][4:].strip(), count=1).strip()
+    if rest and not rest.startswith("—"):
+        rest = "— " + rest.lstrip("-– ")
+    lines[0] = f"{rng} {rest}".rstrip()
+    return "\n".join(lines) + ("\n" if body.endswith("\n") else "")
 
 
 def _is_trailing_junk(line: str) -> bool:

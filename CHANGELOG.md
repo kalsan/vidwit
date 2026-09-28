@@ -5,6 +5,16 @@ All notable changes to vidwit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The time range in each block header (and so in the table of contents) now
+  comes from the planned window instead of the model; only the model's title
+  and tag are kept. With `--skip-identical-frames` the model often copied the
+  timestamp of the last kept frame over still stretches, so several windows
+  had the same range and the table of contents was out of order. Cached
+  chunks are corrected on resume, and a block without a header gets one.
+
 ## [1.4.1] - 2026-09-28
 
 ### Changed

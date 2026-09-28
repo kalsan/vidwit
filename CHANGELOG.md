@@ -5,6 +5,21 @@ All notable changes to vidwit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- The default `max_output_tokens` is 8192 instead of 2048. Thinking models such
+  as Claude Sonnet 5 regularly use 1.6k–3.7k output tokens per window on busy
+  screen recordings, so 2048 cut answers off. Only the tokens actually used are
+  billed. A `vidwit.toml` that sets `max_output_tokens` explicitly still wins.
+
+### Fixed
+- An answer cut off at the output limit is retried once with double the budget
+  (up to 16384). If it is still cut off, the window is kept with a visible
+  `[⚠ output truncated …]` warning, which also appears under content warnings,
+  and the next resume redoes it. Before, a truncated window was cached as
+  finished and never redone.
+
 ## [1.4.0] - 2026-09-28
 
 ### Added
@@ -101,6 +116,7 @@ First public release.
   `--audio-language`, `--notes`.
 - CI and packaging for publishing to PyPI.
 
+[Unreleased]: https://github.com/kalsan/vidwit/compare/v1.4.0...HEAD
 [1.4.0]: https://github.com/kalsan/vidwit/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kalsan/vidwit/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/kalsan/vidwit/compare/v1.2.0...v1.2.1

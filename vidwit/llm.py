@@ -53,6 +53,7 @@ class Usage:
     """Normalised token usage returned by an LLM call."""
     input_tokens: int = 0
     output_tokens: int = 0
+    truncated: bool = False   # answer was cut off at max_output_tokens
 
     @property
     def total(self) -> int:
@@ -306,15 +307,12 @@ class AnthropicProvider:
             self.API_URL, payload, headers,
             timeout=self.request_timeout, retry_timeouts=True,
         )
-        if data.get("stop_reason") == "max_tokens":
-            log.warning("LLM answer cut off at max_output_tokens=%d for window [%.3fs – %.3fs); "
-                        "raise max_output_tokens or use --thinking off",
-                        max_output_tokens, req.window_start_s, req.window_end_s)
         text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
         u = data.get("usage") or {}
         usage = Usage(
             input_tokens=int(u.get("input_tokens") or 0),
             output_tokens=int(u.get("output_tokens") or 0),
+            truncated=data.get("stop_reason") == "max_tokens",
         )
         return text, usage
 
@@ -362,11 +360,12 @@ class OpenAICompatProvider:
             timeout=self.request_timeout,
         )
         u = data.get("usage") or {}
+        choices = data.get("choices") or []
         usage = Usage(
             input_tokens=int(u.get("prompt_tokens") or 0),
             output_tokens=int(u.get("completion_tokens") or 0),
+            truncated=bool(choices) and choices[0].get("finish_reason") == "length",
         )
-        choices = data.get("choices") or []
         if not choices:
             return "", usage
         msg = choices[0].get("message", {})

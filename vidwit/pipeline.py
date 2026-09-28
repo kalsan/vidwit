@@ -114,9 +114,12 @@ def run_one(video: Path, cfg: Config) -> Path:
     for w in plan:
         chunk_path = layout.chunks_dir / f"{w.label}.md"
         if chunk_path.exists() and cfg.resume:
-            log.info("resume: skip chunk %d/%d (%s)", w.index + 1, total, chunk_path.name)
-            tail = _push_tail(tail, chunk_path.read_text(encoding="utf-8"))
-            continue
+            cached = chunk_path.read_text(encoding="utf-8")
+            if _TRUNCATED_MARK not in cached:
+                log.info("resume: skip chunk %d/%d (%s)", w.index + 1, total, chunk_path.name)
+                tail = _push_tail(tail, cached)
+                continue
+            log.info("resume: redo truncated chunk %d/%d (%s)", w.index + 1, total, chunk_path.name)
         t0 = time.monotonic()
         log.info(
             "chunk %d/%d [%s – %s) start",
@@ -126,6 +129,10 @@ def run_one(video: Path, cfg: Config) -> Path:
             w, frames, tx, cfg, provider, system_prompt, tail, rolling_summary, meta,
         )
         body = _sanitise_chunk(body)
+        if usage.truncated:
+            log.warning("chunk %d/%d still cut off at the output limit; kept with a warning, "
+                        "redone on the next resume", w.index + 1, total)
+            body = body.rstrip() + "\n\n" + _TRUNCATED_MARK + "\n"
         chunk_path.write_text(body, encoding="utf-8")
         tail = _push_tail(tail, body)
         completed_this_run += 1
@@ -274,7 +281,22 @@ def _process_window(
         meta=_meta,
         frame_times=frame_times,
     )
-    return provider.vision_chat(req, max_output_tokens=cfg.llm.max_output_tokens)
+    # A cut-off answer is retried with double the output budget, up to
+    # _MAX_OUTPUT_BUDGET; usage of all attempts is summed so the token cap and
+    # the log stay honest.
+    budget = cfg.llm.max_output_tokens
+    total_in = total_out = 0
+    while True:
+        body, usage = provider.vision_chat(req, max_output_tokens=budget)
+        total_in += usage.input_tokens
+        total_out += usage.output_tokens
+        if not usage.truncated or budget >= _MAX_OUTPUT_BUDGET:
+            break
+        new_budget = min(budget * 2, _MAX_OUTPUT_BUDGET)
+        log.warning("answer cut off at %d output tokens for [%s – %s); retrying with %d",
+                    budget, _fmt(w.start), _fmt(w.end), new_budget)
+        budget = new_budget
+    return body, llm.Usage(total_in, total_out, usage.truncated)
 
 
 def _frame_index(path: Path) -> int:
@@ -300,6 +322,13 @@ def _read_prompt(cfg: Config) -> str:
         )
     return prompt
 
+
+# Retries of a cut-off answer stop at this output budget: larger answers risk
+# running into the per-request timeout of non-streaming calls.
+_MAX_OUTPUT_BUDGET = 16384
+# Appended to a chunk that stayed cut off; the assembler lists it under content
+# warnings, and a resume redoes such chunks instead of reusing them.
+_TRUNCATED_MARK = "[⚠ output truncated at the output token limit; this window is redone on the next resume]"
 
 _SENTENCE_TERMINATORS = (".", "?", "!", "…")
 _GAP_THRESHOLD_S = 0.6

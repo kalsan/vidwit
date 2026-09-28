@@ -17,7 +17,7 @@ class LLMConfig:
     model: str = ""
     base_url: str | None = None
     api_key: str | None = None
-    max_output_tokens: int = 2048
+    max_output_tokens: int = 8192           # room for thinking models; only used tokens are billed
     request_timeout: float | None = None    # seconds; None = provider default (anthropic 180, local 600)
     thinking: str | None = None             # anthropic: "off" | "adaptive"; None = model default
     extra_body: dict = field(default_factory=dict)  # merged into chat-completions payload

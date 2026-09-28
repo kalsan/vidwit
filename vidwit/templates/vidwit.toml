@@ -21,7 +21,10 @@ model = "claude-sonnet-4-6"
 # base_url = "http://localhost:1234/v1"
 # api_key = "lm-studio"          # any non-empty string works for LM Studio
 
-max_output_tokens = 2048
+# Upper bound per window; only used tokens are billed. Thinking models (e.g.
+# claude-sonnet-5) need several thousand; a cut-off answer is retried once
+# with double the budget.
+max_output_tokens = 8192
 # request_timeout = 600              # seconds; raise for slow local models
 
 # Optional passthrough into the chat-completions request body. Useful

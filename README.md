@@ -192,6 +192,7 @@ The most commonly used command-line flags are:
 --base-url URL       OpenAI-compatible endpoint URL
 --timeout SECONDS    HTTP timeout for each LLM call (default 180 for anthropic,
                      600 for openai/lmstudio)
+--thinking MODE      anthropic only: off | adaptive (default: the model's own)
 --extra-body K=JSON  extra field merged into the chat-completions payload;
                      repeatable. Example: --extra-body
                      'chat_template_kwargs={"enable_thinking":false}'

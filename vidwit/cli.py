@@ -128,6 +128,11 @@ def _build_parser() -> argparse.ArgumentParser:
     llm.add_argument("--timeout", dest="llm_timeout", type=float, default=None,
                      help="HTTP timeout for LLM requests in seconds (default: 180 for "
                           "anthropic, where timeouts are retried; 600 for openai/lmstudio)")
+    llm.add_argument("--thinking", dest="llm_thinking", default=None, choices=["off", "adaptive"],
+                     help="anthropic only: switch the model's thinking off or to adaptive. "
+                          "Default: the model's own default (Sonnet 5 and newer think by "
+                          "default, which costs output tokens and counts against "
+                          "max_output_tokens)")
     llm.add_argument(
         "--extra-body", dest="llm_extra_body", action="append", default=[],
         metavar="KEY=JSON",
@@ -201,6 +206,7 @@ def _make_config(args: argparse.Namespace) -> cfg_mod.Config:
     if args.llm_model: llm = replace(llm, model=args.llm_model)
     if args.llm_base_url: llm = replace(llm, base_url=args.llm_base_url)
     if args.llm_timeout is not None: llm = replace(llm, request_timeout=args.llm_timeout)
+    if args.llm_thinking: llm = replace(llm, thinking=args.llm_thinking)
     if args.llm_extra_body:
         merged = {**llm.extra_body, **_parse_extra_body(args.llm_extra_body)}
         llm = replace(llm, extra_body=merged)

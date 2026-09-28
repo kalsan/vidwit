@@ -74,6 +74,7 @@ def build(cfg: LLMConfig) -> Provider:
             model=cfg.model or "claude-sonnet-4-6",
             api_key=cfg.api_key,
             request_timeout=cfg.request_timeout if cfg.request_timeout is not None else _HOSTED_TIMEOUT,
+            thinking=cfg.thinking,
             extra_body=dict(cfg.extra_body),
         )
     if p in ("openai", "lmstudio", "openai-compat"):
@@ -264,13 +265,17 @@ class AnthropicProvider:
         model: str,
         api_key: str | None,
         request_timeout: float = 600.0,
+        thinking: str | None = None,
         extra_body: dict | None = None,
     ):
         if not api_key:
             raise RuntimeError("anthropic provider needs api_key (ANTHROPIC_API_KEY)")
+        if thinking not in (None, "off", "adaptive"):
+            raise ValueError(f"thinking must be 'off' or 'adaptive', got {thinking!r}")
         self.model = model
         self.api_key = api_key
         self.request_timeout = request_timeout
+        self.thinking = thinking
         self.extra_body = extra_body or {}
 
     def vision_chat(self, req: ChunkRequest, max_output_tokens: int) -> tuple[str, Usage]:
@@ -289,8 +294,10 @@ class AnthropicProvider:
             "max_tokens": max_output_tokens,
             "system": req.system,
             "messages": [{"role": "user", "content": content}],
-            **self.extra_body,
         }
+        if self.thinking:
+            payload["thinking"] = {"type": "disabled" if self.thinking == "off" else "adaptive"}
+        payload.update(self.extra_body)
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": self.API_VERSION,
@@ -299,6 +306,10 @@ class AnthropicProvider:
             self.API_URL, payload, headers,
             timeout=self.request_timeout, retry_timeouts=True,
         )
+        if data.get("stop_reason") == "max_tokens":
+            log.warning("LLM answer cut off at max_output_tokens=%d for window [%.3fs – %.3fs); "
+                        "raise max_output_tokens or use --thinking off",
+                        max_output_tokens, req.window_start_s, req.window_end_s)
         text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
         u = data.get("usage") or {}
         usage = Usage(

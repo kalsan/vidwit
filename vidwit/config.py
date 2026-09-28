@@ -19,6 +19,7 @@ class LLMConfig:
     api_key: str | None = None
     max_output_tokens: int = 2048
     request_timeout: float | None = None    # seconds; None = provider default (anthropic 180, local 600)
+    thinking: str | None = None             # anthropic: "off" | "adaptive"; None = model default
     extra_body: dict = field(default_factory=dict)  # merged into chat-completions payload
 
 
@@ -126,6 +127,7 @@ def from_file(path: Path, base: Config | None = None) -> Config:
                 float(llm_data["request_timeout"]) if "request_timeout" in llm_data
                 else cfg.llm.request_timeout
             ),
+            thinking=llm_data.get("thinking", cfg.llm.thinking),
             extra_body=dict(eb) if isinstance(eb, dict) else {},
         ),
     )

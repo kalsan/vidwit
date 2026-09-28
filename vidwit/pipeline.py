@@ -53,6 +53,13 @@ Conventions:
 - Bracket non-speech audio: [lion roars].
 - Re-introduce background only on change.
 - Flag graphic content with `[⚠ <reason>]` and a skip range if useful.
+- Quote on-screen text in full and verbatim when it first appears, especially
+  chat messages, AI replies, e-mails, prompts and form fields. Never shorten a
+  quote with "…" or "...". If on-screen text is unchanged since an earlier
+  window, write that it is unchanged instead of re-quoting a shortened copy.
+- Only quote speech segments listed in this window's `# Speech segments`
+  section. Never repeat a speech quote from an earlier window, and if the
+  section is absent, there was no speech in this window.
 """
 
 
@@ -130,9 +137,9 @@ def run_one(video: Path, cfg: Config) -> Path:
         eta_s = avg * remaining
         log.info(
             "chunk %d/%d done in %.1fs (avg %.1fs/chunk, ETA %s for %d more) "
-            "[+%d tok, total %d]",
+            "[+%d tok (in %d / out %d), total %d]",
             w.index + 1, total, dt, avg, _fmt_eta(eta_s), remaining,
-            usage.total, cumulative_tokens,
+            usage.total, usage.input_tokens, usage.output_tokens, cumulative_tokens,
         )
         if cfg.max_tokens is not None and cumulative_tokens >= cfg.max_tokens:
             log.warning(

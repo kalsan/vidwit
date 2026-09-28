@@ -45,7 +45,10 @@ Cover, in this order, only as needed:
 3. Spatial layout when non-trivial.
 4. On-screen text — quote verbatim, preserve case + punctuation, and
    attribute its source: "title card", "lower-third", "subtitle",
-   "sign", "infographic", "label", etc.
+   "sign", "infographic", "label", etc. Quote it in full when it first
+   appears (chat messages, AI replies, e-mails, form fields included);
+   never shorten it with "…". If it is unchanged since an earlier
+   window, say so instead of re-quoting a shortened copy.
 5. Background — mention only on change after the first block.
 
 Avoid repeating what an earlier block already established.
@@ -61,6 +64,9 @@ sentences from word fragments.
 - Non-speech: `[lion roars]`, `[applause]`, `[wind]`.
 - Speech that crosses the window boundary: end with `…` and continue
   in the next block, starting with `…`.
+- Only quote segments listed in this window's `# Speech segments`
+  section; never repeat a quote from an earlier window. If the section
+  is absent, there was no speech in this window.
 
 ## Unreliable transcript
 

@@ -5,6 +5,24 @@ All notable changes to vidwit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `--thinking off|adaptive` (`thinking` under `[llm]`): control the thinking of
+  Anthropic models. Without it the model's own default applies. On Claude
+  Sonnet 5, `off` measurably worsened witness records (summarised instead of
+  verbatim on-screen text, paraphrased narration), so leave it unset unless a
+  model needs it.
+- Each chunk's log line now splits tokens into input and output, and a warning
+  is logged when an answer is cut off at `max_output_tokens`.
+
+### Changed
+- The default prompt now requires on-screen text (chat messages, AI replies,
+  e-mails, form fields) to be quoted in full instead of shortened with "…", and
+  forbids repeating a speech quote outside the window it belongs to. Both
+  mistakes were observed on Claude Sonnet 5 with busy screen recordings; the
+  rules also apply to the `vidwit init` prompt template.
+
 ## [1.3.0] - 2026-09-28
 
 ### Added
@@ -83,6 +101,7 @@ First public release.
   `--audio-language`, `--notes`.
 - CI and packaging for publishing to PyPI.
 
+[Unreleased]: https://github.com/kalsan/vidwit/compare/v1.3.0...HEAD
 [1.3.0]: https://github.com/kalsan/vidwit/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/kalsan/vidwit/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/kalsan/vidwit/compare/v1.1.0...v1.2.0

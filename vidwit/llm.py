@@ -72,7 +72,7 @@ def build(cfg: LLMConfig) -> Provider:
         return DummyProvider()
     if p == "anthropic":
         return AnthropicProvider(
-            model=cfg.model or "claude-sonnet-4-6",
+            model=cfg.model or "claude-sonnet-5",
             api_key=cfg.api_key,
             request_timeout=cfg.request_timeout if cfg.request_timeout is not None else _HOSTED_TIMEOUT,
             thinking=cfg.thinking,

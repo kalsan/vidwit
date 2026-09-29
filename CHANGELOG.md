@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The default Anthropic model is `claude-sonnet-5` instead of
+  `claude-sonnet-4-6`, also in the `vidwit init` template. On busy screen
+  recordings it produced equally complete witness records at about 30% lower
+  cost. Claude Sonnet 5.5 was also measured: same content, but about 14% more
+  expensive through longer answers. Note that Sonnet 5.5 rejects
+  `--thinking off`.
+- The README explains how `mpdecimate` decides what counts as a change and
+  recommends `--mpdecimate 'hi=64*255:lo=64*5:frac=0.02'` for full-resolution
+  screen recordings, where cursor, spinner and counter movement otherwise
+  keeps nearly every frame. Measured on a chat-heavy 1280×720 recording: 34%
+  fewer frames and about 21% fewer tokens, same content. The `vidwit init`
+  template carries the same example instead of the previous one, which
+  barely helped.
+
 ### Fixed
 - The time range in each block header (and so in the table of contents) now
   comes from the planned window instead of the model; only the model's title

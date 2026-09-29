@@ -137,7 +137,7 @@ Four LLM providers are supported out of the box:
 
 | Provider    | Description                                                     |
 |-------------|-----------------------------------------------------------------|
-| `anthropic` | Anthropic Claude (Sonnet 4.6 by default, Opus 4.7 for highest fidelity). |
+| `anthropic` | Anthropic Claude (Sonnet 5 by default). |
 | `openai`    | OpenAI Chat Completions API.                                    |
 | `lmstudio`  | Any OpenAI-compatible endpoint, such as LM Studio or vLLM.      |
 | `dummy`     | A no-network placeholder useful for offline testing; it emits stub chunks instead of calling a real model. |
@@ -267,8 +267,29 @@ and runs on the downscaled frames (`--frame-width` × `--frame-height`),
 so a change counts only if it is visible at the size the LLM receives.
 At the default 256×144 this also filters out noise such as a ticking
 status-bar clock or a blinking cursor. At larger frame sizes such noise
-can keep every frame; pass stricter options via `--mpdecimate`, e.g.
-`--mpdecimate 'hi=64*24:lo=64*10:frac=0.33'`.
+can keep every frame; pass other options via `--mpdecimate`.
+
+mpdecimate compares each frame with the last kept one in overlapping
+8×8 blocks (4-pixel step) and keeps it if any block differs by more than
+`hi`, or if more than `(w/16)·(h/16)·frac` blocks differ by more than
+`lo` (defaults: `hi=64*12`, `lo=64*5`, `frac=0.33`). A moving mouse
+cursor, a spinner or a token counter always exceeds `hi`, so at full
+screen-recording resolution nearly every frame is kept. Switching `hi`
+off and deciding by changed area works better there:
+
+```sh
+--mpdecimate 'hi=64*255:lo=64*5:frac=0.02'
+```
+
+On a 1280×720 screen recording of chat-based work (AI replies streaming
+in, text being typed), this kept 108 instead of 164 of 180 frames and
+cut tokens by about 21%, with the same witness content: streaming text
+still appears, only in coarser steps. Because the comparison is always
+against the last kept frame, slowly growing text adds up until it
+crosses the threshold, while a moving cursor does not. Much larger
+values (`frac=0.05`) drop more frames, but the model then describes the
+missing intermediate states itself and output tokens, which cost more,
+go up.
 
 The capture metadata then tells the model that sampling is
 change-driven and lists each frame's timestamp. A window with no change

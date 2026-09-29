@@ -143,8 +143,15 @@ def transcribe(
     compute_type = "float16" if device == "cuda" else "int8"
 
     model = WhisperModel(model_name, device=device, compute_type=compute_type)
+    # Without conditioning on the previous text, a hallucinated phrase cannot
+    # feed itself into the next segment's prompt. With it, a 44-min screen
+    # recording collapsed from minute 13 on into 156 consecutive "Okay." and
+    # lost two thirds of its speech; a rerun looped again elsewhere (the
+    # temperature fallback samples, so each run fails differently). vad_filter would also avoid the loop,
+    # but it dropped the quieter voice of a call partner, so it stays off.
     segments, info = model.transcribe(
         str(audio_path), word_timestamps=True, language=language,
+        condition_on_previous_text=False,
     )
 
     words: list[Word] = []
@@ -163,6 +170,30 @@ def transcribe(
         language=info.language,
         language_probability=float(info.language_probability),
     )
+
+
+def repetition_loops(words: tuple[Word, ...] | list[Word], min_run: int = 10) -> list[tuple[float, float, str, int]]:
+    """Runs of at least `min_run` identical consecutive words.
+
+    Real speech repeats a word three or four times at most ("ja, ja, ja");
+    a whisper repetition loop produces dozens. Returns (start, end, word,
+    count) per run, compared case- and punctuation-insensitively.
+    """
+    loops = []
+    i = 0
+    while i < len(words):
+        key = _loop_key(words[i].text)
+        j = i + 1
+        while j < len(words) and key and _loop_key(words[j].text) == key:
+            j += 1
+        if key and j - i >= min_run:
+            loops.append((words[i].start, words[j - 1].end, words[i].text, j - i))
+        i = j
+    return loops
+
+
+def _loop_key(text: str) -> str:
+    return "".join(c for c in text.lower() if c.isalnum())
 
 
 def _cuda_ok() -> bool:

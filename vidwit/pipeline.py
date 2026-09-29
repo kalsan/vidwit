@@ -79,6 +79,10 @@ def run_one(video: Path, cfg: Config) -> Path:
 
     # 1. Audio + transcript.
     tx = _ensure_transcript(video, layout, cfg)
+    for start, end, word, count in transcribe.repetition_loops(tx.words):
+        log.warning("transcript repeats %r %d times in a row at [%s – %s); whisper likely "
+                    "looped and speech there is missing; delete %s to transcribe again",
+                    word, count, _fmt(start), _fmt(end), layout.transcript_json)
 
     # 2. Frames at fps (a ceiling with skip_identical_frames).
     frames = _ensure_frames(video, layout, cfg, info.duration_s)

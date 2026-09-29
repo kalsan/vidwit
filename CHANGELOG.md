@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   barely helped.
 
 ### Fixed
+- Whisper no longer conditions each segment on the previous text, which let
+  a hallucinated phrase repeat itself for the rest of the audio. On a 44-min
+  German screen recording, one run collapsed from minute 13 on into 156
+  consecutive "Okay." and lost two thirds of its speech, including a whole
+  phone call, and a rerun looped again in other places; without
+  conditioning, the same audio transcribed cleanly (longest repeat: 3
+  words). Voice-activity filtering also avoided the loop
+  but dropped the quieter voice of a call partner, so it is not used.
+- A transcript with 10 or more identical words in a row now logs a warning
+  with the affected time range, since that almost always means whisper
+  looped and the speech there is missing.
 - The time range in each block header (and so in the table of contents) now
   comes from the planned window instead of the model; only the model's title
   and tag are kept. With `--skip-identical-frames` the model often copied the
